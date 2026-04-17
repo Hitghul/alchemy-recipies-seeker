@@ -99,6 +99,59 @@ main {
   gap: 0.5rem;
 }
 
+/* ── FILTER ── */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+  padding: 0.6rem 1rem;
+  background: rgba(22, 27, 46, 0.4);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.filter-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--gold);
+}
+
+.duration-filter {
+  color-scheme: dark;
+  width: 70px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.filter-unit {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.filter-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-left: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .filter-row {
+    gap: 0.4rem;
+  }
+  .filter-hint {
+    margin-left: 0;
+    width: 100%; 
+  }
+}
+
 /* ── TOOLBAR ── */
 .toolbar {
   display: flex;

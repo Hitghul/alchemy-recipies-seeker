@@ -30,6 +30,18 @@
     >
     <button class="btn" id="btn-clear">Clear All</button>
   </div>
+  <div class="filter-row">
+    <span class="filter-label">Min Duration:</span>
+    <input 
+      type="number" 
+      id="filter-duration" 
+      class="duration-filter" 
+      placeholder="0" 
+      min="0"
+    >
+    <span class="filter-unit">seconds</span>
+    <span class="filter-hint">The optimizer will ignore pills shorter than this</span>
+  </div>
 
   <div id="inventory-grid"></div>
 
