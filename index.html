@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="description" content="QiMulti pill optimizer for alchemists — find the best craftable set from your inventory.">
+  <title>⚗️ Qi Optimizer — Alchemist</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">⚗️ Qi Multi Optimizer</div>
+  <div class="subtitle">Dao of Alchemy — Best Pill Set</div>
+</header>
+
+<main>
+
+  <div class="section-title">🌿 Plant Inventory</div>
+
+  <div class="toolbar">
+    <input
+      type="text"
+      id="search-plant"
+      class="search-input"
+      placeholder="🔍 Search for a plant..."
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
+    >
+    <button class="btn" id="btn-clear">Clear All</button>
+  </div>
+
+  <div id="inventory-grid"></div>
+
+  <div style="text-align:center; margin: 1.2rem 0;">
+    <button class="btn btn-primary" id="btn-optimize">⚗️ Optimize QiMulti</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-title">✨ Best Set — QiMulti > 100%</div>
+  <div id="results-summary"></div>
+  <div id="results"></div>
+
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/alchemy.js"></script>
+<script src="js/optimizer.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

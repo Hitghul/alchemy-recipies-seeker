@@ -1,0 +1,467 @@
+/* ============================================================
+   STYLE.CSS — Xianxia Alchemist Theme
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --bg-deep: #0a0c14;
+  --bg-card: #111520;
+  --bg-card2: #161b2e;
+  --border: #2a3060;
+  --border-glow: #4a5898;
+  --gold: #c9a84c;
+  --gold-light: #f0d080;
+  --jade: #4ecdc4;
+  --qi: #9b72cf;
+  --qi-light: #c9a4f8;
+  --text: #d4d8f0;
+  --text-muted: #6a729a;
+  --red: #e05555;
+  --green: #5ecf7a;
+  --blue: #5aaaf0;
+
+  /* Rarity colors */
+  --rarity-C: #8a9090;
+  --rarity-U: #4ecdc4;
+  --rarity-R: #8a72ff;
+  --rarity-E: #e0a030;
+  --rarity-L: #ff6090;
+
+  /* Family colors */
+  --fam-vitality: #e05555;
+  --fam-endurance: #4ecdc4;
+  --fam-agility: #f0d080;
+  --fam-spirit: #9b72cf;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Noto Sans', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(75, 50, 150, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 30% at 80% 90%, rgba(50, 120, 120, 0.1) 0%, transparent 60%);
+}
+
+/* ── HEADER ── */
+header {
+  text-align: center;
+  padding: 2rem 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(20,15,50,0.8) 0%, transparent 100%);
+}
+
+.logo {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1.4rem, 5vw, 2.2rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--qi-light) 50%, var(--jade) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.05em;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── MAIN LAYOUT ── */
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* ── SECTION TITLES ── */
+.section-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── TOOLBAR ── */
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 150px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-input:focus { border-color: var(--border-glow); }
+.search-input::placeholder { color: var(--text-muted); }
+
+.btn {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--border-glow); color: var(--gold-light); }
+.btn-primary {
+  background: linear-gradient(135deg, #2a1a60, #1a2a60);
+  border-color: var(--qi);
+  color: var(--qi-light);
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  padding: 0.5rem 1.2rem;
+}
+.btn-primary:hover { background: linear-gradient(135deg, #3a2a80, #2a3a80); box-shadow: 0 0 12px rgba(155, 114, 207, 0.3); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── INVENTORY GRID ── */
+#inventory-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.family-section { }
+
+.family-header {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0;
+}
+.fam-icon { font-size: 1rem; }
+.fam-vitality { background: rgba(224, 85, 85, 0.15); color: var(--fam-vitality); border: 1px solid rgba(224,85,85,0.3); border-bottom: none; }
+.fam-endurance { background: rgba(78, 205, 196, 0.15); color: var(--fam-endurance); border: 1px solid rgba(78,205,196,0.3); border-bottom: none; }
+.fam-agility { background: rgba(240, 208, 128, 0.15); color: var(--fam-agility); border: 1px solid rgba(240,208,128,0.3); border-bottom: none; }
+.fam-spirit { background: rgba(155, 114, 207, 0.15); color: var(--fam-spirit); border: 1px solid rgba(155,114,207,0.3); border-bottom: none; }
+
+.plant-cards-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0;
+}
+
+/* Plants are direct children of family-section (after header) */
+.family-section .plant-card:first-of-type { border-top: none; }
+
+.plant-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: none;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.15s;
+}
+.plant-card:last-child { border-radius: 0 0 4px 4px; }
+.plant-card.has-stock { background: rgba(30, 35, 65, 0.9); }
+
+.plant-info {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.rarity-badge {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.plant-card.rarity-C .rarity-badge { background: rgba(138,144,144,0.2); color: var(--rarity-C); border: 1px solid var(--rarity-C); }
+.plant-card.rarity-U .rarity-badge { background: rgba(78,205,196,0.15); color: var(--rarity-U); border: 1px solid var(--rarity-U); }
+.plant-card.rarity-R .rarity-badge { background: rgba(138,114,255,0.15); color: var(--rarity-R); border: 1px solid var(--rarity-R); }
+.plant-card.rarity-E .rarity-badge { background: rgba(224,160,48,0.15); color: var(--rarity-E); border: 1px solid var(--rarity-E); }
+.plant-card.rarity-L .rarity-badge { background: rgba(255,96,144,0.15); color: var(--rarity-L); border: 1px solid var(--rarity-L); }
+
+.plant-name {
+  font-size: 0.78rem;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.plant-score {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.qty-btn {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+.qty-btn:hover { border-color: var(--border-glow); color: var(--gold); }
+
+.qty-input {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  width: 42px;
+  height: 22px;
+  text-align: center;
+  font-size: 0.8rem;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.qty-input:focus { border-color: var(--border-glow); }
+
+/* ── RESULTS SUMMARY ── */
+#results-summary { margin-bottom: 1rem; }
+
+.summary-box {
+  background: linear-gradient(135deg, rgba(40,20,80,0.8), rgba(20,40,80,0.8));
+  border: 1px solid var(--qi);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.summary-total {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  color: var(--qi-light);
+  font-weight: 700;
+}
+.summary-pills, .summary-derived {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── PILL CARDS ── */
+#results { display: flex; flex-direction: column; gap: 0.6rem; padding-bottom: 2rem; }
+
+.pill-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+  animation: fadeIn 0.3s ease both;
+  transition: border-color 0.2s;
+}
+.craft-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.pill-card.crafted {
+  opacity: 0.4;
+  text-decoration: line-through;
+  filter: grayscale(100%);
+  transition: all 0.3s ease;
+}
+
+.pill-card.crafted .pill-type-badge,
+.pill-card.crafted .pill-qi,
+.pill-card.crafted .effect-tag,
+.pill-card.crafted .ingr-tag {
+  text-decoration: line-through;
+}
+
+/* Adjust the old pill-qi margin so it doesn't push the checkbox away */
+.pill-qi { 
+  margin-left: 1rem; 
+  color: var(--primary); 
+  font-weight: bold; 
+  font-size: 1.2rem; 
+}
+.pill-card:hover { border-color: var(--border-glow); }
+.pill-card.heavenly { border-left: 3px solid var(--gold); }
+.pill-card.regular { border-left: 3px solid var(--jade); }
+.pill-card.imperfect { border-left: 3px solid var(--text-muted); }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pill-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.pill-rank {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  width: 2rem;
+  flex-shrink: 0;
+}
+
+.pill-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+.pill-type-badge {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.pill-type-badge.heavenly { background: rgba(201,168,76,0.2); color: var(--gold); border: 1px solid var(--gold); }
+.pill-type-badge.regular  { background: rgba(78,205,196,0.2); color: var(--jade); border: 1px solid var(--jade); }
+.pill-type-badge.imperfect{ background: rgba(106,114,154,0.2); color: var(--text-muted); border: 1px solid var(--text-muted); }
+
+.pill-qi {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  color: var(--qi-light);
+  flex-shrink: 0;
+}
+
+.pill-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+}
+
+.effect-tag {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.effect-tag.qimulti { background: rgba(155,114,207,0.2); color: var(--qi-light); border: 1px solid rgba(155,114,207,0.4); }
+.effect-tag.vitality { background: rgba(224,85,85,0.15); color: #f08080; border: 1px solid rgba(224,85,85,0.3); }
+.effect-tag.speed    { background: rgba(94,207,122,0.15); color: #80e09a; border: 1px solid rgba(94,207,122,0.3); }
+.effect-tag.strength { background: rgba(240,208,128,0.15); color: var(--gold-light); border: 1px solid rgba(240,208,128,0.3); }
+.effect-tag.lifespan { background: rgba(78,205,196,0.15); color: var(--jade); border: 1px solid rgba(78,205,196,0.3); }
+
+.perm-badge { color: var(--jade); font-size: 0.65rem; }
+.dur-badge  { color: var(--text-muted); font-size: 0.65rem; }
+
+.pill-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.ingr-tag {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+}
+.ingr-tag.rarity-C { color: var(--rarity-C); }
+.ingr-tag.rarity-U { color: var(--rarity-U); }
+.ingr-tag.rarity-R { color: var(--rarity-R); }
+.ingr-tag.rarity-E { color: var(--rarity-E); }
+.ingr-tag.rarity-L { color: var(--rarity-L); }
+
+/* ── MISC ── */
+.no-results, .error-msg {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.error-msg { color: var(--red); }
+
+/* ── MOBILE ── */
+@media (max-width: 480px) {
+  main { padding: 0.6rem; }
+  .logo { font-size: 1.3rem; }
+  .plant-card { padding: 0.4rem 0.5rem; }
+  .plant-name { font-size: 0.72rem; }
+  .qty-input { width: 36px; }
+  .pill-name { font-size: 0.78rem; }
+  .summary-total { font-size: 0.95rem; }
+}
+
+/* ── DIVIDER ── */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  margin: 1.2rem 0;
+}
