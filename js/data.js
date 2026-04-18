@@ -259,7 +259,7 @@ const RECIPES = [
   {
     name: "Seven Star Enlightenment Pill",
     ingredients: { "Seven Star Flower": 1, "Starlight Dew Herb": 4, "Heavenly Spirit Vine": 1 },
-    effects: []  // Unknown effects - skip in optimizer
+    effects: [{ stat: "QiMulti", pct: 250, duration: 3600 }]
   },
   {
     name: "Dragon Pulse Pill",
