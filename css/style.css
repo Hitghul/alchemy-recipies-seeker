@@ -3,7 +3,18 @@
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans:wght@300;400;500&display=swap');
+.hits-counter img {
+  border-radius: 4px;
+  opacity: 0.85;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); /* Ombre de base */
+}
 
+.hits-counter img:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(201, 168, 76, 0.3); /* Lueur dorée au survol */
+}
 :root {
   --bg-deep: #0a0c14;
   --bg-card: #111520;
