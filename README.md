@@ -1,3 +1,5 @@
+![Views](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fhitghul.github.io%2Falchemy-recipies-seeker&count_bg=%23C9A84C&title_bg=%23111520&icon=&icon_color=%23E7E7E7&title=Cultivators+Helped&edge_flat=false)
+
 # ⚗️ QiMulti Optimizer for "Chasing Immortality"
 
 ![HTML5](https://img.shields.io/badge/html5-%23E34F26.svg?style=for-the-badge&logo=html5&logoColor=white)

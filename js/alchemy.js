@@ -5,7 +5,7 @@
 /**
  * Generates all valid and craftable derivations (QiMulti > 100%)
  */
-function generateAllDerivations(inventory, minDuration) {
+async function generateAllDerivations(inventory, minDuration, maxSize) {
   const results = [];
 
   // Filter recipes (Ignore unknown effects and the Death Pill)
@@ -15,7 +15,7 @@ function generateAllDerivations(inventory, minDuration) {
   );
 
   for (const baseRecipe of candidateRecipes) {
-    const derived = deriveFromRecipe(baseRecipe, inventory, candidateRecipes);
+    const derived = await deriveFromRecipe(baseRecipe, inventory, candidateRecipes, maxSize);
     for (const d of derived) {
       results.push(d);
     }
@@ -42,7 +42,7 @@ function generateAllDerivations(inventory, minDuration) {
 /**
  * Generates all variations of a recipe by substituting 1 to 3 plants
  */
-function deriveFromRecipe(baseRecipe, inventory, allRecipes) {
+async function deriveFromRecipe(baseRecipe, inventory, allRecipes, maxSize) {
   const pills = [];
 
   // 1. Flatten the ingredients into a single list
@@ -56,7 +56,7 @@ function deriveFromRecipe(baseRecipe, inventory, allRecipes) {
   // 2. Obtain all possible index groups (1 to 3 from the length)
   const indices = Array.from({ length: baseList.length }, (_, i) => i);
   const subsets = [];
-  for (let size = 1; size <= 3; size++) {
+  for (let size = 1; size <= maxSize; size++) {
     subsets.push(...getCombinations(indices, size));
   }
 
@@ -70,6 +70,8 @@ function deriveFromRecipe(baseRecipe, inventory, allRecipes) {
   }
 
   // 3. Apply the permutations for each index subset
+  let lastYieldTime = performance.now();
+
   for (const subset of subsets) {
     // For each chosen index, list the alternatives in the same family
     const candidatesPerSlot = subset.map(idx => {
@@ -81,7 +83,12 @@ function deriveFromRecipe(baseRecipe, inventory, allRecipes) {
     // Cartesian product to obtain all replacement permutations
     const combos = cartesian(candidatesPerSlot);
 
-    for (const combo of combos) {
+    for (const combo of combos) {      
+      if (performance.now() - lastYieldTime > 40) { 
+         await new Promise(resolve => setTimeout(resolve, 0));
+         lastYieldTime = performance.now();
+       }
+
        const newList = [...baseList];
        // Replace plants with specific indexes
        for (let i = 0; i < subset.length; i++) {

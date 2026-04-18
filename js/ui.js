@@ -177,33 +177,36 @@ function filterPlants(e) {
   });
 }
 
-function runOptimizer() {
+async function runOptimizer() {
   const btn = document.getElementById('btn-optimize');
   const minDuration = parseInt(document.getElementById('filter-duration').value) || 0;
+  
+  const isDeepScan = document.getElementById('deep-scan-toggle').checked;
+  const maxSize = isDeepScan ? 4 : 3;
+  
   btn.disabled = true;
-  btn.textContent = '⚗️ Calculating...';
+  btn.textContent = isDeepScan ? '⚗️ Deep Calculating (Please wait)...' : '⚗️ Calculating...';
 
-  setTimeout(() => {
-    try {
-      const inventory = { ...inventoryState };
-      for (const k of Object.keys(inventory)) {
-        if (!inventory[k]) delete inventory[k];
-      }
+  await new Promise(resolve => setTimeout(resolve, 50));
 
-      const allPills = generateAllDerivations(inventory, minDuration);
-      const bestSet = findBestSet(allPills, inventory);
-      const summary = computeSetSummary(bestSet);
-
-      renderResults(summary, allPills.length);
-    } catch (err) {
-      console.error(err);
-      document.getElementById('results').innerHTML =
-        `<div class="error-msg">❌ Error: ${err.message}</div>`;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '⚗️ Optimize QiMulti';
+  try {
+    const inventory = { ...inventoryState };
+    for (const k of Object.keys(inventory)) {
+      if (!inventory[k]) delete inventory[k];
     }
-  }, 50);
+
+    const allPills = await generateAllDerivations(inventory, minDuration, maxSize);
+    const bestSet = findBestSet(allPills, inventory);
+    const summary = computeSetSummary(bestSet);
+
+    renderResults(summary, allPills.length);
+  } catch (err) {
+    console.error(err);
+    document.getElementById('results').innerHTML = `<div class="error-msg">❌ Error: ${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚗️ Optimize QiMulti';
+  }
 }
 
 function renderResults(summary, totalDerivations) {
