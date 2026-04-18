@@ -5,7 +5,7 @@
 /**
  * Generates all valid and craftable derivations (QiMulti > 100%)
  */
-async function generateAllDerivations(inventory, minDuration, maxSize) {
+async function generateAllDerivations(inventory, minDuration, maxSize, minQi) {
   const results = [];
 
   // Filter recipes (Ignore unknown effects and the Death Pill)
@@ -34,7 +34,7 @@ async function generateAllDerivations(inventory, minDuration, maxSize) {
 
   // Final filter: We only keep those that give > 100% QiMulti
   return deduped.filter(pill =>
-    pill.effects.some(e => e.stat === "QiMulti" && e.pct > 100) &&
+    pill.effects.some(e => e.stat === "QiMulti" && e.pct >= minQi) &&
     pill.effects.some(e => e.duration >= minDuration || e.duration === 0)
   );
 }

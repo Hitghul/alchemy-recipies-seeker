@@ -15,12 +15,13 @@ function initUI() {
   });
 
   document.getElementById('btn-optimize').addEventListener('click', runOptimizer);
-  
   document.getElementById('btn-clear').addEventListener('click', handleClearAllClick);
-  
   document.getElementById('btn-clear-results').addEventListener('click', clearResultsOnly);
-  
   document.getElementById('search-plant').addEventListener('input', filterPlants);
+  document.getElementById('filter-qi').addEventListener('input', updateResultsTitle);
+  document.getElementById('filter-duration').addEventListener('input', updateResultsTitle);
+
+  updateResultsTitle();
 }
 
 function renderInventoryGrid() {
@@ -178,9 +179,11 @@ function filterPlants(e) {
 }
 
 async function runOptimizer() {
+
   const btn = document.getElementById('btn-optimize');
   const minDuration = parseInt(document.getElementById('filter-duration').value) || 0;
-  
+  const qiInput = document.getElementById('filter-qi').value;
+  const minQi = qiInput === "" ? 100 : parseInt(qiInput);
   const isDeepScan = document.getElementById('deep-scan-toggle').checked;
   const maxSize = isDeepScan ? 4 : 3;
   
@@ -195,7 +198,7 @@ async function runOptimizer() {
       if (!inventory[k]) delete inventory[k];
     }
 
-    const allPills = await generateAllDerivations(inventory, minDuration, maxSize);
+    const allPills = await generateAllDerivations(inventory, minDuration, maxSize, minQi);
     const bestSet = findBestSet(allPills, inventory);
     const summary = computeSetSummary(bestSet);
 
@@ -241,8 +244,10 @@ function renderResults(summary, totalDerivations) {
         return `<span class="ingr-tag rarity-${rarity}">${qty}× ${plant}</span>`;
       }).join('');
 
+    const animDelay = Math.min(i * 30, 800);
+
     return `
-      <div class="pill-card ${typeClass}" style="animation-delay:${i * 40}ms">
+      <div class="pill-card ${typeClass}" style="animation-delay:${animDelay}ms">
         <div class="pill-header">
           <span class="pill-rank">#${i + 1}</span>
           <span class="pill-name">${p.name}</span>
@@ -282,5 +287,16 @@ function togglePillDone(checkbox, ingredients) {
       : currentQty + qty;
       
     setQty(plantName, newQty);
+  }
+}
+
+function updateResultsTitle() {
+  const titleText = document.getElementById('results-title-text');
+  if (titleText) {
+    const minDuration = parseInt(document.getElementById('filter-duration').value) || 0;
+    const qiInput = document.getElementById('filter-qi').value;
+    const minQi = qiInput === "" ? 100 : parseInt(qiInput);
+    
+    titleText.textContent = `✨ Best Set — QiMulti ≥ ${minQi}% | Min Duration ≥ ${minDuration}s`;
   }
 }

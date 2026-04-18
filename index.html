@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="description" content="QiMulti pill optimizer for alchemists — find the best craftable set from your inventory.">
   <title>⚗️ Qi Optimizer — Alchemist</title>
-  <link rel="stylesheet" href="css/style.css?v=1.5">
+  <link rel="stylesheet" href="css/style.css?v=1.6">
 </head>
 <body>
 
@@ -31,16 +31,14 @@
     <button class="btn" id="btn-clear">Clear All</button>
   </div>
   <div class="filter-row">
-    <span class="filter-label">Min Duration:</span>
-    <input 
-      type="number" 
-      id="filter-duration" 
-      class="duration-filter" 
-      placeholder="0" 
-      min="0"
-    >
-    <span class="filter-unit">seconds</span>
-    <span class="filter-hint">The optimizer will ignore pills shorter than this</span>
+  <span class="filter-label" style="margin-left: 10px;">Min Qi:</span>
+  <input type="number" id="filter-qi" class="duration-filter" value="100" min="0" step="5">
+  <span class="filter-unit">%</span>
+  
+  <span class="filter-label">Min Duration:</span>
+  <input type="number" id="filter-duration" class="duration-filter" value="0" min="0" step="10">
+  <span class="filter-unit">seconds</span>
+
     <div style="margin-left: auto; display: flex; align-items: center; gap: 0.6rem;">
       <span class="filter-label">Deep Scan:</span>
       <label class="switch" title="Increases derivations & accuracy, but takes longer to calculate.">
@@ -60,7 +58,7 @@
   <div class="divider"></div>
 
   <div class="section-title">
-    ✨ Best Set — QiMulti > 100%
+    <span id="results-title-text">✨ Best Set — QiMulti ≥ 100% | Min Duration ≥ 0s</span>
     <button class="btn" id="btn-clear-results" style="margin-left: auto; font-size: 0.7rem;">Clear Recipes</button>
   </div>
   <div id="results-summary"></div>
@@ -82,9 +80,9 @@
   </div>
 </footer>
 
-<script src="js/data.js?v=1.5"></script>
-<script src="js/alchemy.js?v=1.5"></script>
-<script src="js/optimizer.js?v=1.5"></script>
-<script src="js/ui.js?v=1.5"></script>
+<script src="js/data.js?v=1.6"></script>
+<script src="js/alchemy.js?v=1.6"></script>
+<script src="js/optimizer.js?v=1.6"></script>
+<script src="js/ui.js?v=1.6"></script>
 </body>
 </html>
