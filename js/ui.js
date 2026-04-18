@@ -1,9 +1,25 @@
-const inventoryState = {};
+let inventoryState = JSON.parse(localStorage.getItem('alchemyInventory')) || {};
+
+function saveInventory() {
+  localStorage.setItem('alchemyInventory', JSON.stringify(inventoryState));
+}
 
 function initUI() {
   renderInventoryGrid();
+  Object.entries(inventoryState).forEach(([name, qty]) => {
+    const input = getQtyInput(name);
+    if (input) {
+      input.value = qty;
+      updateCardState(name, qty);
+    }
+  });
+
   document.getElementById('btn-optimize').addEventListener('click', runOptimizer);
-  document.getElementById('btn-clear').addEventListener('click', clearAll);
+  
+  document.getElementById('btn-clear').addEventListener('click', handleClearAllClick);
+  
+  document.getElementById('btn-clear-results').addEventListener('click', clearResultsOnly);
+  
   document.getElementById('search-plant').addEventListener('input', filterPlants);
 }
 
@@ -68,6 +84,7 @@ function adjustQty(plantName, delta) {
   const input = getQtyInput(plantName);
   if (input) input.value = newVal;
   updateCardState(plantName, newVal);
+  saveInventory();
 }
 
 function setQty(plantName, value) {
@@ -76,6 +93,7 @@ function setQty(plantName, value) {
   const input = getQtyInput(plantName);
   if (input && parseInt(input.value) !== newVal) input.value = newVal;
   updateCardState(plantName, newVal);
+  saveInventory();
 }
 
 function updateCardState(plantName, qty) {
@@ -85,14 +103,56 @@ function updateCardState(plantName, qty) {
   }
 }
 
-function clearAll() {
+function clearResultsOnly() {
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('results-summary').innerHTML = '';
+}
+
+let clearConfirmTimeout = null;
+
+function handleClearAllClick() {
+  const btn = document.getElementById('btn-clear');
+  
+  if (btn.classList.contains('btn-confirm-waiting')) {
+    executeClearAll();
+  } else {
+    btn.classList.add('btn-confirm-waiting');
+    btn.textContent = '⚠️ CONFIRM ?';
+    
+    clearConfirmTimeout = setTimeout(() => {
+      resetClearButton();
+    }, 3000);
+  }
+}
+
+function resetClearButton() {
+  const btn = document.getElementById('btn-clear');
+  btn.classList.remove('btn-confirm-waiting');
+  btn.textContent = 'Clear All';
+  if (clearConfirmTimeout) clearTimeout(clearConfirmTimeout);
+}
+
+function executeClearAll() {
   for (const plantName of Object.keys(PLANTS)) {
-    setQty(plantName, 0);
+    inventoryState[plantName] = 0;
     const input = getQtyInput(plantName);
     if (input) input.value = 0;
+    updateCardState(plantName, 0);
   }
-  document.getElementById('results').innerHTML = '';
-  document.getElementById('results-summary').textContent = '';
+  saveInventory();
+  clearResultsOnly();
+  resetClearButton();
+}
+
+function clearAll() {
+  for (const plantName of Object.keys(PLANTS)) {
+    inventoryState[plantName] = 0;
+    const input = getQtyInput(plantName);
+    if (input) input.value = 0;
+    updateCardState(plantName, 0);
+  }
+  saveInventory();
+  clearResultsOnly();
 }
 
 function filterPlants(e) {
@@ -180,7 +240,7 @@ function renderResults(summary, totalDerivations) {
           <span class="pill-type-badge ${typeClass}">${p.type}</span>
           <span class="pill-qi">+${p.qiMulti}% QiMulti</span>
           <label class="craft-toggle">
-            <input type="checkbox" onchange="this.closest('.pill-card').classList.toggle('crafted', this.checked)">
+            <input type="checkbox" onchange="togglePillDone(this, ${JSON.stringify(p.ingredients).replace(/"/g, '&quot;')})">
             Done
           </label>
         </div>
@@ -198,3 +258,20 @@ function formatDuration(seconds) {
 }
 
 document.addEventListener('DOMContentLoaded', initUI);
+
+function togglePillDone(checkbox, ingredients) {
+  const pillCard = checkbox.closest('.pill-card');
+  const isChecked = checkbox.checked;
+  
+  pillCard.classList.toggle('crafted', isChecked);
+
+  for (const [plantName, qty] of Object.entries(ingredients)) {
+    const currentQty = inventoryState[plantName] || 0;
+    
+    const newQty = isChecked 
+      ? Math.max(0, currentQty - qty) 
+      : currentQty + qty;
+      
+    setQty(plantName, newQty);
+  }
+}
