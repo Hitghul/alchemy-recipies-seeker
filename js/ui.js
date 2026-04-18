@@ -27,32 +27,37 @@ function renderInventoryGrid() {
   const grid = document.getElementById('inventory-grid');
   grid.innerHTML = '';
 
-  const families = ['VITALITY', 'ENDURANCE', 'AGILITY', 'SPIRIT'];
+  const rarities = ['C', 'U', 'R', 'E', 'L'];
+  const rarityLabels = { C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic', L: 'Legendary' };
   const familyEmoji = { VITALITY: '❤️', ENDURANCE: '🛡️', AGILITY: '⚡', SPIRIT: '🔮' };
 
-  for (const fam of families) {
+  for (const r of rarities) {
     const section = document.createElement('div');
-    section.className = 'family-section';
-    section.dataset.family = fam;
 
     const header = document.createElement('div');
-    header.className = `family-header fam-${fam.toLowerCase()}`;
-    header.innerHTML = `<span class="fam-icon">${familyEmoji[fam]}</span><span>${fam}</span>`;
+    header.className = `rarity-header header-${r}`;
+
+    header.innerHTML = `
+      <span class="rarity-symbol">${r}</span>
+      <span class="rarity-text">${rarityLabels[r]}</span>
+    `;
     section.appendChild(header);
 
-    const plantsInFam = FAMILY_PLANTS[fam];
-    for (const plantName of plantsInFam) {
-      const plant = PLANTS[plantName];
+    const plantsInRarity = Object.entries(PLANTS)
+      .filter(([_, data]) => data.rarity === r)
+      .sort((a, b) => a[1].score - b[1].score);
+
+    for (const [plantName, data] of plantsInRarity) {
       const card = document.createElement('div');
-      card.className = `plant-card rarity-${plant.rarity}`;
+      card.className = `plant-card rarity-${r}`;
       card.dataset.plant = plantName;
-      card.dataset.family = fam;
+      card.dataset.family = data.family;
 
       card.innerHTML = `
         <div class="plant-info">
-          <span class="rarity-badge">${plant.rarity}</span>
+          <span class="plant-score">⭐ ${data.score} ~</span>
           <span class="plant-name">${plantName}</span>
-          <span class="plant-score">⭐${plant.score}</span>
+          <span class="plant-family-tag">${familyEmoji[data.family]} ${data.family.toLowerCase()}</span>
         </div>
         <div class="qty-controls">
           <button class="qty-btn" onclick="adjustQty('${plantName}', -1)">−</button>
@@ -158,11 +163,12 @@ function clearAll() {
 function filterPlants(e) {
   const query = e.target.value.toLowerCase().trim();
   const cards = document.querySelectorAll('.plant-card');
-  const sections = document.querySelectorAll('.family-section');
+  const sections = document.querySelectorAll('.rarity-section');
 
   cards.forEach(card => {
     const name = card.dataset.plant.toLowerCase();
-    card.style.display = (!query || name.includes(query)) ? '' : 'none';
+    const family = card.dataset.family.toLowerCase();
+    card.style.display = (!query || name.includes(query) || family.includes(query)) ? '' : 'none';
   });
 
   sections.forEach(section => {

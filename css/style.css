@@ -22,11 +22,11 @@
   --blue: #5aaaf0;
 
   /* Rarity colors */
-  --rarity-C: #8a9090;
-  --rarity-U: #4ecdc4;
-  --rarity-R: #8a72ff;
-  --rarity-E: #e0a030;
-  --rarity-L: #ff6090;
+  --rarity-C: #989697;
+  --rarity-U: #92df8f;
+  --rarity-R: #92b2ff;
+  --rarity-E: #be8cff;
+  --rarity-L: #ffe7a9;
 
   /* Family colors */
   --fam-vitality: #e05555;
@@ -232,26 +232,56 @@ main {
   margin-bottom: 1.5rem;
 }
 
-.family-section { }
+.rarity-section { margin-bottom: 1.5rem; }
 
-.family-header {
+.rarity-symbol {
   font-family: 'Cinzel', serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 6px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  background: rgba(0, 0, 0, 0.2);  
+  margin-right: 12px;
+  display: inline-block;
+  line-height: 1;
+  min-width: 24px;
+  text-align: center;
+}
+
+.rarity-header {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  font-weight: 700;
   text-transform: uppercase;
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px 4px 0 0;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px 6px 0 0;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-bottom: none;
 }
-.fam-icon { font-size: 1rem; }
-.fam-vitality { background: rgba(224, 85, 85, 0.15); color: var(--fam-vitality); border: 1px solid rgba(224,85,85,0.3); border-bottom: none; }
-.fam-endurance { background: rgba(78, 205, 196, 0.15); color: var(--fam-endurance); border: 1px solid rgba(78,205,196,0.3); border-bottom: none; }
-.fam-agility { background: rgba(240, 208, 128, 0.15); color: var(--fam-agility); border: 1px solid rgba(240,208,128,0.3); border-bottom: none; }
-.fam-spirit { background: rgba(155, 114, 207, 0.15); color: var(--fam-spirit); border: 1px solid rgba(155,114,207,0.3); border-bottom: none; }
+.header-C { background: rgba(122, 130, 136, 0.2); color: var(--rarity-C); }
+.header-U { background: rgba(94, 207, 122, 0.2); color: var(--rarity-U); }
+.header-R { background: rgba(90, 170, 240, 0.2); color: var(--rarity-R); }
+.header-E { background: rgba(163, 112, 247, 0.2); color: var(--rarity-E); }
+.header-L { background: rgba(240, 208, 128, 0.2); color: var(--rarity-L); }
+
+.plant-family-tag {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-style: italic;
+  margin-left: auto;
+  padding-right: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.plant-name {
+  max-width: 120px; 
+}
 
 .plant-cards-wrap {
   display: grid;
@@ -298,6 +328,7 @@ main {
 .plant-card.rarity-L .rarity-badge { background: rgba(255,96,144,0.15); color: var(--rarity-L); border: 1px solid var(--rarity-L); }
 
 .plant-name {
+  max-width: none;
   font-size: 0.78rem;
   flex: 1;
   white-space: nowrap;
@@ -307,7 +338,7 @@ main {
 }
 
 .plant-score {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   flex-shrink: 0;
 }
