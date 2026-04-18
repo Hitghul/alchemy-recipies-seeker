@@ -35,7 +35,7 @@
       autocorrect="off"
       spellcheck="false"
     >
-    <button class="btn" id="btn-clear">Clear All</button>
+    <button class="btn" id="btn-clear" onclick="dataLayer.push({'event': 'click_clear_all'});">Clear All</button>
   </div>
   <div class="filter-row">
   <span class="filter-label" style="margin-left: 10px;">Min Qi:</span>
@@ -49,7 +49,7 @@
     <div style="margin-left: auto; display: flex; align-items: center; gap: 0.6rem;">
       <span class="filter-label">Deep Scan:</span>
       <label class="switch" title="Increases derivations & accuracy, but takes longer to calculate.">
-        <input type="checkbox" id="deep-scan-toggle">
+        <input type="checkbox" id="deep-scan-toggle" onchange="dataLayer.push({'event': 'toggle_deep_scan'});">
         <span class="slider"></span>
       </label>
       <span class="filter-hint" style="margin-left: 0;">Slower, but better QiMulti</span>
@@ -59,14 +59,14 @@
   <div id="inventory-grid"></div>
 
   <div style="text-align:center; margin: 1.2rem 0;">
-    <button class="btn btn-primary" id="btn-optimize">⚗️ Optimize QiMulti</button>
+    <button class="btn btn-primary" id="btn-optimize" onclick="dataLayer.push({'event': 'click_optimize'});">⚗️ Optimize QiMulti</button>
   </div>
 
   <div class="divider"></div>
 
   <div class="section-title">
     <span id="results-title-text">✨ Best Set — QiMulti ≥ 100% | Min Duration ≥ 0s</span>
-    <button class="btn" id="btn-clear-results" style="margin-left: auto; font-size: 0.7rem;">Clear Recipes</button>
+    <button class="btn" id="btn-clear-results" style="margin-left: auto; font-size: 0.7rem;" onclick="dataLayer.push({'event': 'click_clear_recipes'});">Clear Recipes</button>
   </div>
   <div id="results-summary"></div>
   <div id="results"></div>

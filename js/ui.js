@@ -21,6 +21,10 @@ function initUI() {
   document.getElementById('filter-qi').addEventListener('input', updateResultsTitle);
   document.getElementById('filter-duration').addEventListener('input', updateResultsTitle);
 
+  document.getElementById('search-plant').addEventListener('focus', () => dataLayer.push({'event': 'focus_search'}));
+  document.getElementById('filter-qi').addEventListener('focus', () => dataLayer.push({'event': 'focus_filter_qi'}));
+  document.getElementById('filter-duration').addEventListener('focus', () => dataLayer.push({'event': 'focus_filter_duration'}));
+
   updateResultsTitle();
 }
 
@@ -288,6 +292,12 @@ function togglePillDone(checkbox, ingredients) {
       
     setQty(plantName, newQty);
   }
+
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    'event': 'click_recipe_done',
+    'recipe_action': isChecked ? 'checked' : 'unchecked'
+  });
 }
 
 function updateResultsTitle() {
