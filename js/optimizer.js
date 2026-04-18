@@ -6,24 +6,44 @@
  * Finds the best set in real time
  * Uses a Greedy Phase followed by optimization through successive trades
  */
+// ============================================================
+//  OPTIMIZER.JS — GRASP Algorithm (Greedy + Local Search)
+// ============================================================
+
+/**
+ * Finds the best set in real time
+ * Uses a Greedy Phase followed by optimization through successive trades
+ */
 function findBestSet(pills, initialInventory) {
-  // 1. Grouping of Slots (Name + Effects)
-  const slotsMap = new Map();
+  // 1. Grouping of Slots (using the new Similarity Rule)
+  const allSlots = [];
+  
   for (const pill of pills) {
-    const key = pill.name + "|" + effectKey(pill.effects);
-    if (!slotsMap.has(key)) {
-      slotsMap.set(key, {
-        key: key,
+    pill.cost = getCost(pill.ingredients);
+    let foundSlot = null;
+    
+    // We check if the pill belongs to an existing slot based on the similarity rule
+    for (const slot of allSlots) {
+      if (arePillsSimilar(slot.variants[0], pill)) {
+        foundSlot = slot;
+        break;
+      }
+    }
+    
+    if (foundSlot) {
+      foundSlot.variants.push(pill);
+      const currentQi = getTotalQiMulti(pill);
+      if (currentQi > foundSlot.qiMulti) {
+        foundSlot.qiMulti = currentQi; // Update max Qi for the slot
+      }
+    } else {
+      allSlots.push({
         name: pill.name,
         qiMulti: getTotalQiMulti(pill),
-        variants: []
+        variants: [pill]
       });
     }
-    pill.cost = getCost(pill.ingredients);
-    slotsMap.get(key).variants.push(pill);
   }
-
-  const allSlots = Array.from(slotsMap.values());
 
   // 2. Sorting variants and calculating profitability
   for (const slot of allSlots) {
@@ -188,4 +208,21 @@ function computeSetSummary(bestSet) {
 
   const totalQi = qiStats.reduce((s, p) => s + p.qiMulti, 0);
   return { pills: qiStats, totalQi };
+}
+
+function arePillsSimilar(p1, p2) {
+  if (p1.name !== p2.name) return false;
+  
+  const getDur = (p) => {
+    const qi = p.effects.find(e => e.stat === "QiMulti");
+    return qi ? qi.duration : 0;
+  };
+  
+  const d1 = getDur(p1);
+  const d2 = getDur(p2);
+  
+  if (d1 === 0 && d2 === 0) return true;
+  if (d1 === 0 || d2 === 0) return false;
+  
+  return (Math.abs(d1 - d2) / Math.max(d1, d2)) <= 0.011;
 }
