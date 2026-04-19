@@ -3,12 +3,14 @@ let uiSettings = JSON.parse(localStorage.getItem('alchemySettings')) || {
   minQi: 100,
   minDuration: 0,
   maxPills: '',
-  sortMode: 'grouped'
+  sortMode: 'grouped',
+  calcMode: 'alchemist'
 };
 
 let currentBestSet = [];
 let currentTotalDerivations = 0;
 let currentSortMode = uiSettings.sortMode;
+let currentCalcMode = uiSettings.calcMode || 'alchemist';
 
 function saveInventory() {
   localStorage.setItem('alchemyInventory', JSON.stringify(inventoryState));
@@ -19,6 +21,7 @@ function saveUISettings() {
   uiSettings.minQi = document.getElementById('filter-qi').value;
   uiSettings.minDuration = document.getElementById('filter-duration').value;
   uiSettings.maxPills = document.getElementById('filter-max-pills').value;
+  uiSettings.calcMode = document.getElementById('filter-calc-mode').value;
   uiSettings.sortMode = currentSortMode;
   localStorage.setItem('alchemySettings', JSON.stringify(uiSettings));
 }
@@ -27,7 +30,8 @@ function saveUISettings() {
 function saveResultsState() {
   localStorage.setItem('alchemyResults', JSON.stringify({
     bestSet: currentBestSet,
-    totalDerivations: currentTotalDerivations
+    totalDerivations: currentTotalDerivations,
+    calcMode: currentCalcMode
   }));
 }
 
@@ -37,6 +41,7 @@ function loadResultsState() {
   if (saved && saved.bestSet && saved.bestSet.length > 0) {
     currentBestSet = saved.bestSet;
     currentTotalDerivations = saved.totalDerivations || 0;
+    currentCalcMode = saved.calcMode || 'alchemist';
     renderResults();
   }
 }
@@ -56,6 +61,11 @@ function initUI() {
   document.getElementById('filter-duration').value = uiSettings.minDuration !== undefined ? uiSettings.minDuration : 0;
   document.getElementById('filter-max-pills').value = uiSettings.maxPills !== undefined ? uiSettings.maxPills : '';
 
+  document.getElementById('filter-calc-mode').value = uiSettings.calcMode !== undefined ? uiSettings.calcMode : 'alchemist';
+  document.getElementById('filter-calc-mode').addEventListener('change', () => {
+    saveUISettings();
+  });
+  
   document.getElementById('btn-optimize').addEventListener('click', runOptimizer);
   document.getElementById('btn-clear').addEventListener('click', handleClearAllClick);
   // Use the new confirmation handler for Clear Recipes
@@ -275,6 +285,8 @@ async function runOptimizer() {
   const maxPills = maxPillsInput === "" ? Infinity : parseInt(maxPillsInput);
   
   const maxSize = 3;
+  const calcMode = document.getElementById('filter-calc-mode').value;
+  currentCalcMode = calcMode;
   
   btn.disabled = true;
   btn.textContent = '⚗️ Calculating...';
@@ -287,7 +299,7 @@ try {
       if (!inventory[k]) delete inventory[k];
     }
 
-    const allPills = await generateAllDerivations(inventory, minDuration, maxSize, minQi);
+    const allPills = await generateAllDerivations(inventory, minDuration, maxSize, minQi, currentCalcMode);
     currentBestSet = findBestSet(allPills, inventory, maxPills);
     
     // Assign a unique ID and default "isDone" state to each generated pill
@@ -330,6 +342,11 @@ function renderResults() {
       <span class="summary-total">+${summary.totalQi}% Total QiMulti</span>
       <span class="summary-pills">${summary.pills.length} unique pill(s)</span>
       <span class="summary-derived">${currentTotalDerivations} derivations analyzed</span>
+      
+      <span class="summary-mode" style="font-size: 0.85rem; color: var(--gold); padding-left: 0.8rem; border-left: 1px solid var(--border); letter-spacing: 0.05em; text-transform: uppercase;">
+        ${currentCalcMode === 'handcrafted' ? 'Handcrafted' : 'Alchemist'}
+      </span>
+      
       <button id="btn-toggle-sort" class="btn" style="margin-left: auto;">${sortBtnText}</button>
     </div>
   `;
@@ -337,9 +354,9 @@ function renderResults() {
   if (currentSortMode === 'grouped') {
     summaryHtml += `
       <div class="summary-box" style="margin-top: 0.5rem; background: rgba(94, 207, 122, 0.1); border-color: rgba(94, 207, 122, 0.3); justify-content: center; padding: 0.4rem;">
-        <span style="color: var(--green); font-size: 0.8rem;">
-          <span style="border: 1px solid var(--green); padding: 0.1rem 0.3rem; border-radius: 3px; box-shadow: 0 0 6px rgba(94, 207, 122, 0.4); margin-right: 0.4rem;">Plant Name</span> 
-          Green borders indicate plants that were swapped compared to the pill directly above it
+        <span style="color: var(--green); font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <span style="border: 1px solid var(--green); padding: 0.1rem 0.3rem; border-radius: 3px; box-shadow: 0 0 6px rgba(94, 207, 122, 0.4);">Plant Name</span> 
+          <span>Green borders indicate plants that were swapped compared to the pill directly above it</span>
         </span>
       </div>
     `;
@@ -347,20 +364,26 @@ function renderResults() {
 
   summaryEl.innerHTML = summaryHtml;
 
-  document.getElementById('btn-toggle-sort').addEventListener('click', () => {
+  const btnSort = document.getElementById('btn-toggle-sort');
+  const newBtnSort = btnSort.cloneNode(true);
+  btnSort.parentNode.replaceChild(newBtnSort, btnSort);
+  newBtnSort.addEventListener('click', () => {
     currentSortMode = currentSortMode === 'grouped' ? 'qimulti' : 'grouped';
     saveUISettings();
     renderResults();
   });
 
+  let prevExpanded = null;
+
   resultsEl.innerHTML = sortedSet.map((p, i) => {
-    // Calculate QiMulti directly to ensure we have the value
     const pillQiMulti = getTotalQiMulti(p);
     const typeClass = p.type.toLowerCase();
-    
-    // Restore visual "Done" state
     const craftedClass = p.isDone ? 'crafted' : '';
     const isCheckedAttr = p.isDone ? 'checked' : '';
+
+    const qiBadgeHtml = pillQiMulti > 0 
+      ? `<span class="pill-qi">+${pillQiMulti}% QiMulti</span>` 
+      : '';
 
     const effectsHtml = p.effects.map(e => {
       const durStr = e.duration === 0
@@ -369,36 +392,71 @@ function renderResults() {
       return `<span class="effect-tag ${e.stat.toLowerCase()}">${e.stat === 'QiMulti' ? '✨' : ''}+${e.pct}% ${e.stat} ${durStr}</span>`;
     }).join('');
 
-    let diffPlants = new Set();
-    if (currentSortMode === 'grouped' && i > 0) {
-      const prevPill = sortedSet[i - 1]; // Use sortedSet directly here
-      if (prevPill.basePill === p.basePill) {
-        const allPlants = new Set([...Object.keys(p.ingredients), ...Object.keys(prevPill.ingredients)]);
-        for (const plant of allPlants) {
-          if ((p.ingredients[plant] || 0) !== (prevPill.ingredients[plant] || 0)) {
-            diffPlants.add(plant);
+    let expandedIngredients = [];
+    for (const [plant, qty] of Object.entries(p.ingredients)) {
+      for (let k = 0; k < qty; k++) expandedIngredients.push(plant);
+    }
+
+    let ingrHtml = '';
+    let separatorHtml = '';
+
+    if (currentSortMode === 'grouped') {
+      let alignedIngredients = new Array(6).fill(null);
+      let diffFlags = new Array(6).fill(false);
+
+      if (i > 0 && sortedSet[i - 1].basePill === p.basePill && prevExpanded) {
+        let tempCurrent = [...expandedIngredients];
+        
+        for (let j = 0; j < 6; j++) {
+          const prevPlant = prevExpanded[j];
+          const matchIdx = tempCurrent.indexOf(prevPlant);
+          if (matchIdx !== -1) {
+            alignedIngredients[j] = prevPlant;
+            tempCurrent.splice(matchIdx, 1);
           }
         }
+        
+        for (let j = 0; j < 6; j++) {
+          if (alignedIngredients[j] === null) {
+            alignedIngredients[j] = tempCurrent.shift();
+            diffFlags[j] = true;
+          }
+        }
+      } else {
+        alignedIngredients = expandedIngredients.sort((a, b) => PLANTS[b].score - PLANTS[a].score);
       }
-    }
-    
-    const ingrHtml = Object.entries(p.ingredients)
-      .sort((a, b) => PLANTS[b[0]].score - PLANTS[a[0]].score)
-      .map(([plant, qty]) => {
+
+      prevExpanded = alignedIngredients;
+
+      ingrHtml = alignedIngredients.map((plant, slotIdx) => {
         const rarity = PLANTS[plant]?.rarity || '?';
-        const swappedClass = diffPlants.has(plant) ? ' swapped' : '';
-        return `<span class="ingr-tag rarity-${rarity}${swappedClass}">${qty}× ${plant}</span>`;
+        const swappedClass = diffFlags[slotIdx] ? ' swapped' : '';
+        return `<span class="ingr-tag rarity-${rarity}${swappedClass}">${plant}</span>`;
       }).join('');
+
+      if (i > 0 && sortedSet[i - 1].basePill !== p.basePill) {
+        separatorHtml = `<div class="group-divider"></div>`;
+      }
+
+    } else {
+      ingrHtml = Object.entries(p.ingredients)
+        .sort((a, b) => PLANTS[b[0]].score - PLANTS[a[0]].score)
+        .map(([plant, qty]) => {
+          const rarity = PLANTS[plant]?.rarity || '?';
+          return `<span class="ingr-tag rarity-${rarity}">${qty}× ${plant}</span>`;
+        }).join('');
+    }
 
     const animDelay = Math.min(i * 30, 800);
 
     return `
+      ${separatorHtml}
       <div class="pill-card ${typeClass} ${craftedClass}" style="animation-delay:${animDelay}ms">
         <div class="pill-header">
           <span class="pill-rank">#${i + 1}</span>
           <span class="pill-name">${p.name}</span>
           <span class="pill-type-badge ${typeClass}">${p.type}</span>
-          <span class="pill-qi">+${pillQiMulti}% QiMulti</span>
+          ${qiBadgeHtml}
           <label class="craft-toggle">
             <input type="checkbox" ${isCheckedAttr} onchange="togglePillDone(this, '${p.id}')">
             Done
@@ -470,6 +528,48 @@ function clearResultsOnly() {
 // Logic for UI Sorting & Grouping
 // ============================================================
 
+function getPathDistance(path) {
+  let total = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    total += ingredientDistance(path[i].ingredients, path[i+1].ingredients);
+  }
+  return total;
+}
+
+function optimizePath2Opt(path) {
+  if (path.length <= 2) return path;
+  
+  let improved = true;
+  
+  while (improved) {
+    improved = false;
+    for (let i = 1; i < path.length - 2; i++) {
+      for (let j = i + 1; j < path.length - 1; j++) {
+        
+        const d1 = ingredientDistance(path[i-1].ingredients, path[i].ingredients);
+        const d2 = ingredientDistance(path[j].ingredients, path[j+1].ingredients);
+        
+        const d3 = ingredientDistance(path[i-1].ingredients, path[j].ingredients);
+        const d4 = ingredientDistance(path[i].ingredients, path[j+1].ingredients);
+
+        if (d3 + d4 < d1 + d2) {
+          let left = i;
+          let right = j;
+          while (left < right) {
+            const temp = path[left];
+            path[left] = path[right];
+            path[right] = temp;
+            left++;
+            right--;
+          }
+          improved = true;
+        }
+      }
+    }
+  }
+  return path;
+}
+
 function applySorting(bestSet, mode) {
   if (mode === 'qimulti') {
     return [...bestSet].sort((a, b) => getTotalQiMulti(b) - getTotalQiMulti(a));
@@ -493,7 +593,13 @@ function applySorting(bestSet, mode) {
     baseQiMap[basePill] = qi;
   }
 
-  const sortedGroupKeys = Object.keys(groups).sort((a, b) => baseQiMap[b] - baseQiMap[a]);
+  const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
+    const diff = baseQiMap[b] - baseQiMap[a];
+    if (diff !== 0) return diff;
+    const maxA = Math.max(...groups[a].map(getTotalQiMulti));
+    const maxB = Math.max(...groups[b].map(getTotalQiMulti));
+    return maxB - maxA;
+  });
 
   const finalSorted = [];
 
@@ -524,19 +630,28 @@ function applySorting(bestSet, mode) {
       chained.push(current);
     }
 
-    finalSorted.push(...chained);
+    const optimizedChained = optimizePath2Opt(chained);
+    
+    finalSorted.push(...optimizedChained);
   }
 
   return finalSorted;
 }
 
 function ingredientDistance(ingr1, ingr2) {
-  const allPlants = new Set([...Object.keys(ingr1), ...Object.keys(ingr2)]);
   let diff = 0;
-  for (const p of allPlants) {
-    const q1 = ingr1[p] || 0;
+  
+  for (const p in ingr1) {
+    const q1 = ingr1[p];
     const q2 = ingr2[p] || 0;
     diff += Math.abs(q1 - q2);
   }
+  
+  for (const p in ingr2) {
+    if (!(p in ingr1)) {
+      diff += ingr2[p];
+    }
+  }
+  
   return diff / 2; 
 }

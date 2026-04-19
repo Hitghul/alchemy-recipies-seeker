@@ -7,13 +7,13 @@
   border-radius: 4px;
   opacity: 0.85;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); /* Ombre de base */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
 }
 
 .hits-counter img:hover {
   opacity: 1;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(201, 168, 76, 0.3); /* Lueur dorée au survol */
+  box-shadow: 0 6px 20px rgba(201, 168, 76, 0.3);
 }
 :root {
   --bg-deep: #0a0c14;
@@ -204,46 +204,21 @@ main {
   }
 }
 
-/* --- TOGGLE SWITCH (Deep Scan) --- */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-}
-.switch input { 
-  opacity: 0; 
-  width: 0; 
-  height: 0; 
-}
-.slider {
-  position: absolute;
+/* ── CUSTOM DROPDOWN ARROW ── */
+select.duration-filter {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 1.8rem;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236a729a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.4rem center;
+  background-size: 1rem;
   cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: var(--bg-deep);
-  border: 1px solid var(--border);
-  transition: .3s;
-  border-radius: 20px;
 }
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 14px; 
-  width: 14px; 
-  left: 2px; 
-  bottom: 2px;
-  background-color: var(--text-muted);
-  transition: .3s;
-  border-radius: 50%;
-}
-input:checked + .slider {
-  background-color: var(--qi);
-  border-color: var(--qi-light);
-}
-input:checked + .slider:before {
-  transform: translateX(16px);
-  background-color: #fff;
-  box-shadow: 0 0 5px var(--qi-light);
+
+select.duration-filter:focus {
+  outline: none;
 }
 
 /* ── TOOLBAR ── */
@@ -648,6 +623,14 @@ input:checked + .slider:before {
 .ingr-tag.swapped {
   border-color: var(--green);
   box-shadow: 0 0 6px rgba(94, 207, 122, 0.4);
+}
+
+/* ── GROUP DIVIDER ── */
+.group-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-glow), transparent);
+  margin: 1.5rem 0 0.8rem 0;
+  opacity: 0.6;
 }
 
 /* ── MISC ── */

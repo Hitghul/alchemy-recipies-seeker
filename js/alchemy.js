@@ -5,7 +5,7 @@
 /**
  * Generates all valid and craftable derivations (QiMulti > 100%)
  */
-async function generateAllDerivations(inventory, minDuration, maxSize, minQi) {
+async function generateAllDerivations(inventory, minDuration, maxSize, minQi, calcMode) {
   const results = [];
 
   // Filter recipes (Ignore unknown effects and the Death Pill)
@@ -15,7 +15,7 @@ async function generateAllDerivations(inventory, minDuration, maxSize, minQi) {
   );
 
   for (const baseRecipe of candidateRecipes) {
-    const derived = await deriveFromRecipe(baseRecipe, inventory, candidateRecipes, maxSize);
+    const derived = await deriveFromRecipe(baseRecipe, inventory, candidateRecipes, maxSize, calcMode);
     for (const d of derived) {
       results.push(d);
     }
@@ -70,7 +70,7 @@ async function generateAllDerivations(inventory, minDuration, maxSize, minQi) {
 /**
  * Generates all variations of a recipe by substituting 1 to 3 plants
  */
-async function deriveFromRecipe(baseRecipe, inventory, allRecipes, maxSize) {
+async function deriveFromRecipe(baseRecipe, inventory, allRecipes, maxSize, calcMode) {
   const pills = [];
 
   // 1. Flatten the ingredients into a single list
@@ -94,7 +94,7 @@ async function deriveFromRecipe(baseRecipe, inventory, allRecipes, maxSize) {
   const regKey = ingredientKey(baseRecipe.ingredients);
   seenMaps.add(regKey);
   if (canCraft(baseRecipe.ingredients, inventory)) {
-    pills.push(computePill(baseRecipe, baseRecipe.ingredients, baseRecipe.ingredients, allRecipes));
+    pills.push(computePill(baseRecipe, baseRecipe.ingredients, baseRecipe.ingredients, allRecipes, calcMode));
   }
 
   // 3. Apply the permutations for each index subset
@@ -136,7 +136,7 @@ async function deriveFromRecipe(baseRecipe, inventory, allRecipes, maxSize) {
 
        // Check feasibility with the inventory before performing the complex calculation
        if (canCraft(newIngr, inventory)) {
-         pills.push(computePill(baseRecipe, baseRecipe.ingredients, newIngr, allRecipes));
+         pills.push(computePill(baseRecipe, baseRecipe.ingredients, newIngr, allRecipes, calcMode));
        }
     }
   }
@@ -147,52 +147,44 @@ async function deriveFromRecipe(baseRecipe, inventory, allRecipes, maxSize) {
 /**
  * Calculate the final statistics of the derivative pill.
  */
-function computePill(baseRecipe, baseIngredients, newIngredients, allRecipes) {
+function computePill(baseRecipe, baseIngredients, newIngredients, allRecipes, calcMode) {
   const swapped = getSwaps(baseIngredients, newIngredients);
   const numSwapped = swapped.length;
 
-  if (numSwapped === 0) {
-    return {
-      name: baseRecipe.name,
-      type: "Regular",
-      basePill: baseRecipe.name,
-      ingredients: { ...newIngredients },
-      effects: baseRecipe.effects.map(e => ({ ...e })),
-    };
-  }
-
-  // Calculation of the transformation score (New - Old)
   let sumTransform = 0;
   for (const { oldPlant, newPlant } of swapped) {
     sumTransform += PLANTS[newPlant].score - PLANTS[oldPlant].score;
   }
 
-  // Anomaly Check (does the recipe fall back on another Regular?)
   const anomaly = findAnomalyRecipe(baseRecipe, newIngredients, allRecipes);
-  if (anomaly) {
-    return {
-      name: anomaly.name,
-      type: "Regular",
-      basePill: baseRecipe.name,
-      ingredients: { ...newIngredients },
-      effects: anomaly.effects.map(e => ({ ...e })),
-    };
+  const isRegular = numSwapped === 0 || anomaly;
+  
+  const type = isRegular ? "Regular" : (sumTransform > 0 ? "Heavenly" : "Imperfect");
+  const referenceRecipe = anomaly ? anomaly : baseRecipe;
+  const finalName = isRegular ? referenceRecipe.name : `${type} ${baseRecipe.name}`;
+
+  const cappedSum = Math.max(-50, Math.min(50, sumTransform));
+  let mult = 1 + (cappedSum / 100);
+  
+  if (calcMode === 'handcrafted') {
+    mult += 2; 
   }
 
-  // Application of statistical modifiers (Strict mathematical rounding)
-  const type = sumTransform > 0 ? "Heavenly" : "Imperfect";
-  const cappedSum = Math.max(-50, Math.min(50, sumTransform));
-  const mult = 1 + cappedSum / 100;
+  const newEffects = referenceRecipe.effects.map(e => {
+    if (calcMode === 'alchemist' && isRegular) {
+      return { ...e };
+    }
 
-  const newEffects = baseRecipe.effects.map(e => ({
-    stat: e.stat,
-    pct: Math.ceil(e.pct * mult),
-    duration: e.duration === 0 ? 0 : Math.round(e.duration * mult),
-  }));
+    return {
+      stat: e.stat,
+      pct: Math.ceil(e.pct * mult),
+      duration: e.duration === 0 ? 0 : Math.round(e.duration * mult),
+    };
+  });
 
   return {
-    name: `${type} ${baseRecipe.name}`,
-    type,
+    name: finalName,
+    type: type,
     basePill: baseRecipe.name,
     ingredients: { ...newIngredients },
     effects: newEffects,
