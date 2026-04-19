@@ -274,6 +274,7 @@ input:checked + .slider:before {
   background: var(--red) !important;
   color: white !important;
   border-color: #ff0000 !important;
+  opacity: 1 !important;
   animation: pulse-red 1s infinite;
   font-weight: bold;
 }
@@ -643,6 +644,11 @@ input:checked + .slider:before {
 .ingr-tag.rarity-R { color: var(--rarity-R); }
 .ingr-tag.rarity-E { color: var(--rarity-E); }
 .ingr-tag.rarity-L { color: var(--rarity-L); }
+
+.ingr-tag.swapped {
+  border-color: var(--green);
+  box-shadow: 0 0 6px rgba(94, 207, 122, 0.4);
+}
 
 /* ── MISC ── */
 .no-results, .error-msg {
