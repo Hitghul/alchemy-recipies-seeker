@@ -44,6 +44,8 @@ async function generateAllDerivations(inventory, minDuration, maxSize, minQi) {
       if (e.stat === "QiMulti") totalQi += e.pct;
     }
 
+    if (totalQi <= 0) return false;
+
     // 3. Global minimum Qi check requested by the user
     if (totalQi < minQi) return false;
 
