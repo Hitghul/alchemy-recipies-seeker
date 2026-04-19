@@ -188,11 +188,14 @@ async function runOptimizer() {
   const minDuration = parseInt(document.getElementById('filter-duration').value) || 0;
   const qiInput = document.getElementById('filter-qi').value;
   const minQi = qiInput === "" ? 100 : parseInt(qiInput);
-  const isDeepScan = document.getElementById('deep-scan-toggle').checked;
-  const maxSize = isDeepScan ? 4 : 3;
+  
+  const maxPillsInput = document.getElementById('filter-max-pills').value;
+  const maxPills = maxPillsInput === "" ? Infinity : parseInt(maxPillsInput);
+  
+  const maxSize = 3;
   
   btn.disabled = true;
-  btn.textContent = isDeepScan ? '⚗️ Deep Calculating (Please wait)...' : '⚗️ Calculating...';
+  btn.textContent = '⚗️ Calculating...';
 
   await new Promise(resolve => setTimeout(resolve, 50));
 
@@ -203,7 +206,7 @@ async function runOptimizer() {
     }
 
     const allPills = await generateAllDerivations(inventory, minDuration, maxSize, minQi);
-    const bestSet = findBestSet(allPills, inventory);
+    const bestSet = findBestSet(allPills, inventory, maxPills);
     const summary = computeSetSummary(bestSet);
 
     renderResults(summary, allPills.length);

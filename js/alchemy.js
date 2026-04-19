@@ -33,10 +33,36 @@ async function generateAllDerivations(inventory, minDuration, maxSize, minQi) {
   }
 
   // Final filter: We only keep those that give > 100% QiMulti
-  return deduped.filter(pill =>
-    pill.effects.some(e => e.stat === "QiMulti" && e.pct >= minQi) &&
-    pill.effects.some(e => e.duration >= minDuration || e.duration === 0)
-  );
+  return deduped.filter(pill => {
+    // 1. Check if the duration matches the user's minimum requirement
+    const hasValidDuration = pill.effects.some(e => e.duration >= minDuration || e.duration === 0);
+    if (!hasValidDuration) return false;
+
+    // 2. Calculate the total QiMulti for this specific pill
+    let totalQi = 0;
+    for (const e of pill.effects) {
+      if (e.stat === "QiMulti") totalQi += e.pct;
+    }
+
+    // 3. Global minimum Qi check requested by the user
+    if (totalQi < minQi) return false;
+
+    // 4. Check for Epic or Legendary plants in the ingredients
+    let hasEpic = false;
+    let hasLegendary = false;
+    for (const plantName of Object.keys(pill.ingredients)) {
+      const rarity = PLANTS[plantName].rarity;
+      if (rarity === "E") hasEpic = true;
+      if (rarity === "L") hasLegendary = true;
+    }
+
+    // 5. Apply rarity efficiency rules: 
+    // Drop legendary recipes under 40% QiMulti, Epic under 15% QiMulti
+    if (hasLegendary && totalQi < 40) return false;
+    if (hasEpic && totalQi < 15) return false;
+
+    return true;
+  });
 }
 
 /**
@@ -187,35 +213,52 @@ function findAnomalyRecipe(baseRecipe, newIngredients, allRecipes) {
 /**
  * Extracts the strict differences between the base recipe and the new recipe by family
 */
+/**
+ * Extracts the strict differences between the base recipe and the new recipe by family
+ * Uses multiset comparison to avoid sorting issues.
+ */
 function getSwaps(baseIngr, newIngr) {
   const swaps = [];
-  const baseFam = {};
-  const newFam = {};
-  
-  // Sorting by family for the database
-  for (const [p, q] of Object.entries(baseIngr)) {
-    const f = PLANTS[p].family;
-    if (!baseFam[f]) baseFam[f] = [];
-    for (let i = 0; i < q; i++) baseFam[f].push(p);
-  }
-  // Sorting by family for the new recipe
-  for (const [p, q] of Object.entries(newIngr)) {
-    const f = PLANTS[p].family;
-    if (!newFam[f]) newFam[f] = [];
-    for (let i = 0; i < q; i++) newFam[f].push(p);
-  }
-  
-  // Comparison
-  for (const fam of Object.keys({ ...baseFam, ...newFam })) {
-    const bList = (baseFam[fam] || []).slice().sort();
-    const nList = (newFam[fam] || []).slice().sort();
-    
-    for (let i = 0; i < bList.length; i++) {
-      if (bList[i] !== nList[i]) {
-        swaps.push({ oldPlant: bList[i], newPlant: nList[i] });
+  const families = ["VITALITY", "ENDURANCE", "AGILITY", "SPIRIT"];
+
+  for (const fam of families) {
+    // Collect all plants belonging to the current family for the base recipe
+    const basePlantsFam = [];
+    for (const [p, q] of Object.entries(baseIngr)) {
+      if (PLANTS[p].family === fam) {
+        for (let i = 0; i < q; i++) basePlantsFam.push(p);
       }
     }
+
+    // Collect all plants belonging to the current family for the new recipe
+    const newPlantsFam = [];
+    for (const [p, q] of Object.entries(newIngr)) {
+      if (PLANTS[p].family === fam) {
+        for (let i = 0; i < q; i++) newPlantsFam.push(p);
+      }
+    }
+
+    // Compare and find exact swapped items
+    const oldPlants = [];
+    const newPlants = [...newPlantsFam];
+
+    for (const basePlant of basePlantsFam) {
+      const matchIndex = newPlants.indexOf(basePlant);
+      if (matchIndex !== -1) {
+        // Plant exists in both recipes, remove it from the pool of new plants
+        newPlants.splice(matchIndex, 1);
+      } else {
+        // Plant is in base but missing in new recipe, it was swapped out
+        oldPlants.push(basePlant);
+      }
+    }
+
+    // Pair the swapped plants (oldPlants and newPlants will have the exact same length)
+    for (let i = 0; i < oldPlants.length; i++) {
+      swaps.push({ oldPlant: oldPlants[i], newPlant: newPlants[i] });
+    }
   }
+  
   return swaps;
 }
 

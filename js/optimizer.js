@@ -14,7 +14,7 @@
  * Finds the best set in real time
  * Uses a Greedy Phase followed by optimization through successive trades
  */
-function findBestSet(pills, initialInventory) {
+function findBestSet(pills, initialInventory, maxPills) {
   // 1. Grouping of Slots (using the new Similarity Rule)
   const allSlots = [];
   
@@ -69,10 +69,12 @@ function findBestSet(pills, initialInventory) {
     let crafted = false;
     for (const variant of slot.variants) {
       if (canCraft(variant.ingredients, currentInv)) {
-        selectedSlots.push({ slot: slot, variant: variant });
-        deductInv(currentInv, variant.ingredients);
-        crafted = true;
-        break; // Only one variant per slot
+        if (selectedSlots.length < maxPills) {
+          selectedSlots.push({ slot: slot, variant: variant });
+          deductInv(currentInv, variant.ingredients);
+          crafted = true;
+          break; // Only one variant per slot
+        }
       }
     }
     if (!crafted) {
@@ -93,11 +95,13 @@ function findBestSet(pills, initialInventory) {
       const uSlot = unselectedSlots[i];
       for (const variant of uSlot.variants) {
         if (canCraft(variant.ingredients, currentInv)) {
-          selectedSlots.push({ slot: uSlot, variant: variant });
-          deductInv(currentInv, variant.ingredients);
-          unselectedSlots.splice(i, 1); // Removed from non-selected candidates
-          improved = true;
-          break;
+          if (selectedSlots.length < maxPills) {
+            selectedSlots.push({ slot: uSlot, variant: variant });
+            deductInv(currentInv, variant.ingredients);
+            unselectedSlots.splice(i, 1); // Removed from non-selected candidates
+            improved = true;
+            break;
+          }
         }
       }
     }
