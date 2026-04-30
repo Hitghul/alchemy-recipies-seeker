@@ -43,11 +43,11 @@ If you want to run or modify this project locally:
 
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/Hitghul/alchemy-recipies-seeker.git](https://github.com/Hitghul/alchemy-recipies-seeker.git)
+   git clone [https://github.com/Hitghul/alchemy-tool.git](https://github.com/Hitghul/alchemy-tool.git)
 
 2. Navigate to the directory:
    ```bash
-   cd alchemy-recipies-seeker
+   cd alchemy-tool
    ```
 3. Open `index.html` in your favorite web browser. No server, database, or dependencies required!
 
