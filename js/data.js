@@ -5,42 +5,31 @@
 const RARITY = { C: 0, U: 1, R: 2, E: 3, L: 4 };
 
 const PLANTS = {
-  "Dandelion of Qi":         { score: 12,  rarity: "C", family: "SPIRIT" },
-  "Basic Herb":              { score: 19,  rarity: "C", family: "VITALITY" },
-  "Common Spirit Grass":     { score: 19,  rarity: "C", family: "AGILITY" },
-  "Wild Bitter Grass":       { score: 25,  rarity: "U", family: "ENDURANCE" },
-  "Mountain Green Herb":     { score: 50,  rarity: "U", family: "ENDURANCE" },
-  "Wild Spirit Grass":       { score: 62,  rarity: "U", family: "SPIRIT" },
-  "Red Ginseng":             { score: 69,  rarity: "U", family: "VITALITY" },
-  "Healing Sunflower":       { score: 74,  rarity: "U", family: "VITALITY" },
-  "Spirit Spring Herb":      { score: 77,  rarity: "R", family: "SPIRIT" },
-  "Cloud Mist Herb":         { score: 80,  rarity: "R", family: "AGILITY" },
-  "Seven Star Flower":       { score: 81,  rarity: "R", family: "SPIRIT" },
-  "Ironbone Grass":          { score: 82,  rarity: "R", family: "ENDURANCE" },
-  "Bitter Jade Grass":       { score: 84,  rarity: "R", family: "VITALITY" },
-  "Silverleaf Herb":         { score: 85,  rarity: "E", family: "AGILITY" },
-  "Purple Lightning Orchid": { score: 91,  rarity: "E", family: "AGILITY" },
-  "Azure Serpent Grass":     { score: 91,  rarity: "E", family: "AGILITY" },
-  "Blue Wave Coral Herb":    { score: 92,  rarity: "E", family: "SPIRIT" },
-  "Crimson Flame Mushroom":  { score: 93,  rarity: "E", family: "ENDURANCE" },
-  "Black Iron Root":         { score: 94,  rarity: "E", family: "ENDURANCE" },
-  "Heavenly Spirit Vine":    { score: 96,  rarity: "L", family: "AGILITY" },
-  "Moonlight Jade Leaf":     { score: 97,  rarity: "L", family: "ENDURANCE" },
-  "Nine Suns Flame Grass":   { score: 98,  rarity: "L", family: "ENDURANCE" },
-  "Starlight Dew Herb":      { score: 99,  rarity: "L", family: "SPIRIT" },
-  "Thousand Year Lotus":     { score: 100, rarity: "L", family: "SPIRIT" },
+  "Dandelion of Qi":         { score: [12],  rarity: "C", family: "SPIRIT" },
+  "Basic Herb":              { score: [19],  rarity: "C", family: "VITALITY" },
+  "Common Spirit Grass":     { score: [19],  rarity: "C", family: "AGILITY" },
+  "Wild Bitter Grass":       { score: [25],  rarity: "U", family: "ENDURANCE" },
+  "Mountain Green Herb":     { score: [50],  rarity: "U", family: "ENDURANCE" },
+  "Wild Spirit Grass":       { score: [62],  rarity: "U", family: "SPIRIT" },
+  "Red Ginseng":             { score: [69],  rarity: "U", family: "VITALITY" },
+  "Healing Sunflower":       { score: [74],  rarity: "U", family: "VITALITY" },
+  "Spirit Spring Herb":      { score: [77],  rarity: "R", family: "SPIRIT" },
+  "Cloud Mist Herb":         { score: [80, 81],  rarity: "R", family: "AGILITY" },
+  "Seven Star Flower":       { score: [81],  rarity: "R", family: "SPIRIT" },
+  "Ironbone Grass":          { score: [82, 83],  rarity: "R", family: "ENDURANCE" },
+  "Bitter Jade Grass":       { score: [84],  rarity: "R", family: "VITALITY" },
+  "Silverleaf Herb":         { score: [85],  rarity: "E", family: "AGILITY" },
+  "Purple Lightning Orchid": { score: [91],  rarity: "E", family: "AGILITY" },
+  "Azure Serpent Grass":     { score: [91],  rarity: "E", family: "AGILITY" },
+  "Blue Wave Coral Herb":    { score: [92],  rarity: "E", family: "SPIRIT" },
+  "Crimson Flame Mushroom":  { score: [93],  rarity: "E", family: "ENDURANCE" },
+  "Black Iron Root":         { score: [94],  rarity: "E", family: "ENDURANCE" },
+  "Heavenly Spirit Vine":    { score: [96],  rarity: "L", family: "AGILITY" },
+  "Moonlight Jade Leaf":     { score: [97, 98],  rarity: "L", family: "ENDURANCE" },
+  "Nine Suns Flame Grass":   { score: [97],  rarity: "L", family: "ENDURANCE" },
+  "Starlight Dew Herb":      { score: [98, 99],  rarity: "L", family: "SPIRIT" },
+  "Thousand Year Lotus":     { score: [100], rarity: "L", family: "SPIRIT" },
 };
-
-// Plants grouped by family for fast lookup
-const FAMILY_PLANTS = {};
-for (const [name, data] of Object.entries(PLANTS)) {
-  if (!FAMILY_PLANTS[data.family]) FAMILY_PLANTS[data.family] = [];
-  FAMILY_PLANTS[data.family].push(name);
-}
-// Sort each family by score ascending
-for (const fam of Object.values(FAMILY_PLANTS)) {
-  fam.sort((a, b) => PLANTS[a].score - PLANTS[b].score);
-}
 
 // Effects structure: array of { stat, pct, permanent, duration }
 // duration in seconds, 0 = permanent
@@ -340,22 +329,5 @@ const RECIPES = [
     name: "Blazewind Pill",
     ingredients: { "Wild Spirit Grass": 1, "Purple Lightning Orchid": 1, "Cloud Mist Herb": 2, "Crimson Flame Mushroom": 2 },
     effects: [{ stat: "Strength", pct: 20, duration: 0 }, { stat: "Speed", pct: 40, duration: 0 }]
-  },
-];
-
-// Build a Map of recipe name -> recipe for fast anomaly checks
-const RECIPE_MAP = new Map(RECIPES.map(r => [r.name, r]));
-
-// Precompute family distribution for each recipe
-function getFamilyDist(ingredients) {
-  const dist = {};
-  for (const [plant, qty] of Object.entries(ingredients)) {
-    const fam = PLANTS[plant].family;
-    dist[fam] = (dist[fam] || 0) + qty;
   }
-  return dist;
-}
-
-for (const r of RECIPES) {
-  r.familyDist = getFamilyDist(r.ingredients);
-}
+];

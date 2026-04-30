@@ -1,161 +1,228 @@
 // ============================================================
-//  OPTIMIZER.JS — GRASP Algorithm (Greedy + Local Search)
+// OPTIMIZER.JS — GRASP Algorithm (Greedy + Local Search)
 // ============================================================
 
-/**
- * Finds the best set in real time
- * Uses a Greedy Phase followed by optimization through successive trades
- */
-// ============================================================
-//  OPTIMIZER.JS — GRASP Algorithm (Greedy + Local Search)
-// ============================================================
+// ------------------------------------------------------------
+// 1. INITIALIZATION
+// ------------------------------------------------------------
+
+// O(1) Lookup for base recipes
+const RECIPE_BY_NAME = new Map();
+for (const r of RECIPES) {
+  RECIPE_BY_NAME.set(r.name, r);
+}
+
+// ------------------------------------------------------------
+// 2. MAIN ENTRY POINT
+// ------------------------------------------------------------
 
 /**
- * Finds the best set in real time
- * Uses a Greedy Phase followed by optimization through successive trades
+ * Finds the optimal set of non-conflicting pills based on inventory.
  */
-function findBestSet(pills, initialInventory, maxPills) {
-  // 1. Grouping of Slots (using the new Similarity Rule)
-  const allSlots = [];
-  
-  for (const pill of pills) {
+async function findBestSet(pills, initialInventory, maxPills) {
+  let lastYieldTime = performance.now();
+
+  for (let i = 0; i < pills.length; i++) {
+    const pill = pills[i];
     pill.cost = getCost(pill.ingredients);
-    let foundSlot = null;
+    pill.qiMulti = getTotalQiMulti(pill); 
+    pill.efficiency = pill.cost > 0 ? (pill.qiMulti / pill.cost) : 0;
     
-    // We check if the pill belongs to an existing slot based on the similarity rule
-    for (const slot of allSlots) {
-      if (arePillsSimilar(slot.variants[0], pill)) {
-        foundSlot = slot;
-        break;
-      }
-    }
-    
-    if (foundSlot) {
-      foundSlot.variants.push(pill);
-      const currentQi = getTotalQiMulti(pill);
-      if (currentQi > foundSlot.qiMulti) {
-        foundSlot.qiMulti = currentQi; // Update max Qi for the slot
-      }
-    } else {
-      allSlots.push({
-        name: pill.name,
-        qiMulti: getTotalQiMulti(pill),
-        variants: [pill]
-      });
+    if (performance.now() - lastYieldTime > 40) {
+      await new Promise(r => setTimeout(r, 0));
+      lastYieldTime = performance.now();
     }
   }
 
-  // 2. Sorting variants and calculating profitability
-  for (const slot of allSlots) {
-    slot.variants.sort((a, b) => a.cost - b.cost);
-    slot.minCost = slot.variants[0].cost;
-    slot.efficiency = slot.qiMulti / slot.minCost;
-  }
-
-  // Sort all slots from most profitable to least profitable
-  allSlots.sort((a, b) => {
-    if (Math.abs(b.efficiency - a.efficiency) > 0.001) return b.efficiency - a.efficiency;
-    return b.qiMulti - a.qiMulti;
+  pills.sort((a, b) => {
+    const diff = b.efficiency - a.efficiency;
+    if (Math.abs(diff) > 0.001) return diff;
+    
+    const qiDiff = b.qiMulti - a.qiMulti;
+    if (qiDiff !== 0) return qiDiff;
+    
+    return a.name.localeCompare(b.name);
   });
 
   const currentInv = { ...initialInventory };
-  const selectedSlots = [];
-  const unselectedSlots = [];
+  const selectedPills = [];
+  const unselectedPills = [];
 
-  // ==========================================
-  // PHASE 1: Greedy Heuristic
-  // ==========================================
-  for (const slot of allSlots) {
-    let crafted = false;
-    for (const variant of slot.variants) {
-      if (canCraft(variant.ingredients, currentInv)) {
-        if (selectedSlots.length < maxPills) {
-          selectedSlots.push({ slot: slot, variant: variant });
-          deductInv(currentInv, variant.ingredients);
-          crafted = true;
-          break; // Only one variant per slot
-        }
-      }
+  await buildGreedySolution(pills, currentInv, selectedPills, unselectedPills, maxPills);
+  await optimizeLocalSearch(currentInv, selectedPills, unselectedPills, maxPills);
+
+  selectedPills.sort((a, b) => b.qiMulti - a.qiMulti);
+  return selectedPills;
+}
+
+// ------------------------------------------------------------
+// 3. GRASP PHASES
+// ------------------------------------------------------------
+
+async function buildGreedySolution(pills, currentInv, selectedPills, unselectedPills, maxPills) {
+  let lastYieldTime = performance.now();
+
+  for (const pill of pills) {
+    if (performance.now() - lastYieldTime > 40) {
+      await new Promise(r => setTimeout(r, 0));
+      lastYieldTime = performance.now();
     }
-    if (!crafted) {
-      unselectedSlots.push(slot);
+
+    if (selectedPills.length < maxPills && canCraft(pill.ingredients, currentInv) && !hasConflict(pill, selectedPills, -1)) {
+      selectedPills.push(pill);
+      deductInv(currentInv, pill.ingredients);
+    } else {
+      unselectedPills.push(pill);
     }
   }
+}
 
-  // ==========================================
-  // PHASE 2: Local Search (1-opt Swap)
-  // ==========================================
-  // We try to improve the set by exchanging pills
+async function optimizeLocalSearch(currentInv, selectedPills, unselectedPills, maxPills) {
   let improved = true;
+  let lastYieldTime = performance.now();
+
   while (improved) {
     improved = false;
 
-    // Attempt 1: Direct fill (In case a previous swap has freed up space)
-    for (let i = unselectedSlots.length - 1; i >= 0; i--) {
-      const uSlot = unselectedSlots[i];
-      for (const variant of uSlot.variants) {
-        if (canCraft(variant.ingredients, currentInv)) {
-          if (selectedSlots.length < maxPills) {
-            selectedSlots.push({ slot: uSlot, variant: variant });
-            deductInv(currentInv, variant.ingredients);
-            unselectedSlots.splice(i, 1); // Removed from non-selected candidates
-            improved = true;
-            break;
-          }
-        }
+    if (performance.now() - lastYieldTime > 40) {
+      await new Promise(r => setTimeout(r, 0));
+      lastYieldTime = performance.now();
+    }
+
+    for (let i = unselectedPills.length - 1; i >= 0; i--) {
+      if (performance.now() - lastYieldTime > 40) {
+        await new Promise(r => setTimeout(r, 0));
+        lastYieldTime = performance.now();
+      }
+
+      const candidate = unselectedPills[i];
+      if (selectedPills.length < maxPills && canCraft(candidate.ingredients, currentInv) && !hasConflict(candidate, selectedPills, -1)) {
+        selectedPills.push(candidate);
+        deductInv(currentInv, candidate.ingredients);
+        unselectedPills.splice(i, 1);
+        improved = true;
       }
     }
 
     if (improved) continue;
 
-    // Attempt 2: The 1-for-1 Exchange (Multi-Qi Upgrade)
+    improved = await attemptLocalSearchSwap(currentInv, selectedPills, unselectedPills);
+  }
+}
 
-    // We sacrifice a pill from the current set to try and place a better one
-    swapLoop:
-    for (let i = 0; i < selectedSlots.length; i++) {
-      const currentSelection = selectedSlots[i];
+async function attemptLocalSearchSwap(currentInv, selectedPills, unselectedPills) {
+  let lastYieldTime = performance.now();
+
+  for (let i = 0; i < selectedPills.length; i++) {
+    const currentSelection = selectedPills[i];
+    
+    for (let j = 0; j < unselectedPills.length; j++) {
       
-      for (let j = 0; j < unselectedSlots.length; j++) {
-        const candidateSlot = unselectedSlots[j];
-        
-        // We will only attempt the exchange if the new pill yields strictly more QiMulti
-        if (candidateSlot.qiMulti <= currentSelection.slot.qiMulti) continue;
-
-        // Simulation: We restore the ingredients of the old pill
-        const tempInv = { ...currentInv };
-        restoreInv(tempInv, currentSelection.variant.ingredients);
-
-        // Checks if the new pill fits in this simulated inventory
-        for (const candidateVariant of candidateSlot.variants) {
-          if (canCraft(candidateVariant.ingredients, tempInv)) {
-            // SUCCESS! The exchange is valid and yields more
-            // We approve the new inventory
-            Object.assign(currentInv, tempInv);
-            deductInv(currentInv, candidateVariant.ingredients);
-            
-            // Updating the lists
-            unselectedSlots.push(currentSelection.slot);
-            selectedSlots.splice(i, 1);
-            selectedSlots.push({ slot: candidateSlot, variant: candidateVariant });
-            unselectedSlots.splice(j, 1);
-            
-            improved = true;
-            break swapLoop; // We restart the complete improvement loop
-          }
-        }
+      if (performance.now() - lastYieldTime > 40) {
+        await new Promise(r => setTimeout(r, 0));
+        lastYieldTime = performance.now();
       }
+
+      const candidate = unselectedPills[j];
+      
+      if (candidate.qiMulti <= currentSelection.qiMulti) continue;
+
+      restoreInv(currentInv, currentSelection.ingredients);
+
+      const canSwap = canCraft(candidate.ingredients, currentInv) && !hasConflict(candidate, selectedPills, i);
+      
+      if (canSwap) {
+        deductInv(currentInv, candidate.ingredients);
+        unselectedPills[j] = currentSelection;
+        selectedPills[i] = candidate;
+        return true; 
+      }
+      
+      deductInv(currentInv, currentSelection.ingredients);
     }
   }
-
-  // 3. Finalizing the result
-  const bestSet = selectedSlots.map(selection => selection.variant);
-  bestSet.sort((a, b) => getTotalQiMulti(b) - getTotalQiMulti(a));
-
-  return bestSet;
+  return false;
 }
 
 // ------------------------------------------------------------
-// Utility functions for inventory management
+// 4. CONFLICT & SIMILARITY LOGIC
+// ------------------------------------------------------------
+
+function hasConflict(newPill, currentSet, ignoreIndex) {
+  for (let i = 0; i < currentSet.length; i++) {
+    if (i === ignoreIndex) continue;
+    if (arePillsSimilar(currentSet[i], newPill)) return true;
+  }
+  return false;
+}
+
+function arePillsSimilar(p1, p2) {
+  if (p1.basePill !== p2.basePill) return false;
+  for (const dur of p1.predictedDurations) {
+    if (p2.predictedDurations.has(dur)) return true;
+  }
+  return false;
+}
+
+// ------------------------------------------------------------
+// 5. COMBINATORIAL MATH
+// ------------------------------------------------------------
+
+function getAllPredictedDurations(pill) {
+  const baseRecipe = RECIPE_BY_NAME.get(pill.basePill);
+  if (!baseRecipe) return new Set([0]);
+
+  const baseEffect = baseRecipe.effects.find(e => e.stat === "QiMulti" || e.duration > 0);
+  const baseDur = baseEffect ? baseEffect.duration : 0;
+  
+  if (baseDur === 0) return new Set([0]); 
+
+  const pIngr = pill.ingredients;
+  const bIngr = baseRecipe.ingredients;
+  const allPlantNames = new Set([...Object.keys(pIngr), ...Object.keys(bIngr)]);
+
+  let fixedScoreSum = 0;
+  let variableChoices = [];
+
+  allPlantNames.forEach(name => {
+    const delta = (pIngr[name] || 0) - (bIngr[name] || 0);
+    if (delta === 0) return;
+
+    const plantData = PLANTS[name];
+    
+    if (plantData.score && plantData.score.length > 1) {
+      for (let i = 0; i < Math.abs(delta); i++) {
+        const sign = Math.sign(delta);
+        variableChoices.push(plantData.score.map(s => s * sign));
+      }
+    } else {
+      fixedScoreSum += delta * plantData.score[0];
+    }
+  });
+
+  let possibleScores = [fixedScoreSum];
+  for (const choices of variableChoices) {
+    const nextScores = [];
+    for (const currentSum of possibleScores) {
+      for (const choice of choices) {
+        nextScores.push(currentSum + choice);
+      }
+    }
+    possibleScores = nextScores;
+  }
+  
+  const finalDurations = new Set();
+  for (const score of possibleScores) {
+    const clampedScore = Math.max(-50, Math.min(50, score));
+    const dur = Math.round(baseDur * (1 + clampedScore / 100));
+    finalDurations.add(dur);
+  }
+
+  return finalDurations;
+}
+
+// ------------------------------------------------------------
+// 6. INVENTORY & COST UTILITIES
 // ------------------------------------------------------------
 
 function deductInv(inventory, ingredients) {
@@ -173,60 +240,24 @@ function restoreInv(inventory, ingredients) {
 function getCost(ingredients) {
   let cost = 0;
   for (const [plant, qty] of Object.entries(ingredients)) {
-    const plantScore = (typeof PLANTS !== 'undefined' && PLANTS[plant]) ? PLANTS[plant].score : 50;
-    cost += qty * plantScore;
+    cost += qty * PLANTS[plant].score[0]; 
   }
   return cost;
 }
 
-function canCraft(ingredients, inventory) {
-  for (const [plant, qty] of Object.entries(ingredients)) {
-    if ((inventory[plant] || 0) < qty) return false;
-  }
-  return true;
-}
-
-function effectKey(effects) {
-  return effects
-    .map(e => `${e.stat}:${e.pct}:${e.duration}`)
-    .sort()
-    .join("|");
-}
-
-function getTotalQiMulti(pill) {
-  let total = 0;
-  for (const e of pill.effects) {
-    if (e.stat === "QiMulti") total += e.pct;
-  }
-  return total;
-}
+// ------------------------------------------------------------
+// 7. SUMMARY REPORTING
+// ------------------------------------------------------------
 
 function computeSetSummary(bestSet) {
   const qiStats = bestSet.map(p => ({
     name: p.name,
     type: p.type,
-    qiMulti: getTotalQiMulti(p),
+    qiMulti: getTotalQiMulti(p), 
     effects: p.effects,
     ingredients: p.ingredients,
   }));
 
   const totalQi = qiStats.reduce((s, p) => s + p.qiMulti, 0);
   return { pills: qiStats, totalQi };
-}
-
-function arePillsSimilar(p1, p2) {
-  if (p1.name !== p2.name) return false;
-  
-  const getDur = (p) => {
-    const qi = p.effects.find(e => e.stat === "QiMulti");
-    return qi ? qi.duration : 0;
-  };
-  
-  const d1 = getDur(p1);
-  const d2 = getDur(p2);
-  
-  if (d1 === 0 && d2 === 0) return true;
-  if (d1 === 0 || d2 === 0) return false;
-  
-  return (Math.abs(d1 - d2) / Math.max(d1, d2)) <= 0.011;
 }

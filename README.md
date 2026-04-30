@@ -10,7 +10,7 @@ A lightweight, lightning-fast web application designed for the Roblox game **Cha
 
 This tool acts as an advanced alchemy solver. It calculates the absolute best combination of pills to craft in order to maximize your **QiMulti (Qi Multiplier) bonus**, based strictly on the specific plants you currently hold in your inventory.
 
-**[Launch the Optimizer here!](https://hitghul.github.io/alchemy-recipies-seeker/)**
+**[Launch the Optimizer here!](https://hitghul.github.io/alchemy-tool/)**
 
 ---
 

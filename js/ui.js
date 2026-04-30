@@ -1,328 +1,195 @@
-let inventoryState = JSON.parse(localStorage.getItem('alchemyInventory')) || {};
-let uiSettings = JSON.parse(localStorage.getItem('alchemySettings')) || {
-  minQi: 100,
-  minDuration: 0,
-  maxPills: '',
-  sortMode: 'grouped',
-  calcMode: 'alchemist'
+// ============================================================
+// UI.JS — Interface & Orchestration
+// ============================================================
+
+// ------------------------------------------------------------
+// 1. STATE & DOM CACHE
+// ------------------------------------------------------------
+
+let inventoryState = {};
+let uiSettings = {
+  minQi: 100, minDuration: 0, maxPills: '', sortMode: 'grouped', calcMode: 'alchemist'
 };
 
 let currentBestSet = [];
 let currentTotalDerivations = 0;
-let currentSortMode = uiSettings.sortMode;
-let currentCalcMode = uiSettings.calcMode || 'alchemist';
+let currentSortMode = 'grouped';
+let currentCalcMode = 'alchemist';
 
-function saveInventory() {
-  localStorage.setItem('alchemyInventory', JSON.stringify(inventoryState));
-}
+let cachedCards = []; 
+let saveTimeout = null;
 
-// Saves all UI filter states and sort mode to localStorage
-function saveUISettings() {
-  uiSettings.minQi = document.getElementById('filter-qi').value;
-  uiSettings.minDuration = document.getElementById('filter-duration').value;
-  uiSettings.maxPills = document.getElementById('filter-max-pills').value;
-  uiSettings.calcMode = document.getElementById('filter-calc-mode').value;
-  uiSettings.sortMode = currentSortMode;
-  localStorage.setItem('alchemySettings', JSON.stringify(uiSettings));
-}
+// ------------------------------------------------------------
+// 2. INITIALIZATION
+// ------------------------------------------------------------
 
-// Saves the current generated recipes and their "done" state
-function saveResultsState() {
-  localStorage.setItem('alchemyResults', JSON.stringify({
-    bestSet: currentBestSet,
-    totalDerivations: currentTotalDerivations,
-    calcMode: currentCalcMode
-  }));
-}
-
-// Loads the saved recipes on page load
-function loadResultsState() {
-  const saved = JSON.parse(localStorage.getItem('alchemyResults'));
-  if (saved && saved.bestSet && saved.bestSet.length > 0) {
-    currentBestSet = saved.bestSet;
-    currentTotalDerivations = saved.totalDerivations || 0;
-    currentCalcMode = saved.calcMode || 'alchemist';
-    renderResults();
-  }
-}
-
-function initUI() {
+async function initUI() {
+  loadAllState();
   renderInventoryGrid();
-  Object.entries(inventoryState).forEach(([name, qty]) => {
-    const input = getQtyInput(name);
-    if (input) {
-      input.value = qty;
-      updateCardState(name, qty);
-    }
+  
+  cachedCards = Array.from(document.querySelectorAll('.plant-card'));
+
+  document.getElementById('filter-qi').value = uiSettings.minQi;
+  document.getElementById('filter-duration').value = uiSettings.minDuration;
+  document.getElementById('filter-max-pills').value = uiSettings.maxPills;
+  document.getElementById('filter-calc-mode').value = uiSettings.calcMode;
+
+  document.getElementById('btn-optimize').addEventListener('click', runOptimizer);
+  document.getElementById('btn-clear').addEventListener('click', (e) => withConfirmation(e.target, 'Clear All', executeClearAll));
+  document.getElementById('btn-clear-results').addEventListener('click', (e) => withConfirmation(e.target, 'Clear Recipes', executeClearResults));
+  
+  const searchInput = document.getElementById('search-plant');
+  searchInput.addEventListener('input', debounce(filterPlants, 150));
+  searchInput.addEventListener('focus', () => {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({'event': 'focus_search'});
   });
-
-  // Restore UI filter values from localStorage
-  document.getElementById('filter-qi').value = uiSettings.minQi !== undefined ? uiSettings.minQi : 100;
-  document.getElementById('filter-duration').value = uiSettings.minDuration !== undefined ? uiSettings.minDuration : 0;
-  document.getElementById('filter-max-pills').value = uiSettings.maxPills !== undefined ? uiSettings.maxPills : '';
-
-  document.getElementById('filter-calc-mode').value = uiSettings.calcMode !== undefined ? uiSettings.calcMode : 'alchemist';
-  document.getElementById('filter-calc-mode').addEventListener('change', () => {
+  
+  document.getElementById('filter-calc-mode').addEventListener('change', (e) => {
+    uiSettings.calcMode = e.target.value;
+    currentCalcMode = e.target.value;
     saveUISettings();
   });
-  
-  document.getElementById('btn-optimize').addEventListener('click', runOptimizer);
-  document.getElementById('btn-clear').addEventListener('click', handleClearAllClick);
-  // Use the new confirmation handler for Clear Recipes
-  document.getElementById('btn-clear-results').addEventListener('click', handleClearResultsClick); 
-  
-  document.getElementById('search-plant').addEventListener('input', filterPlants);
-  document.getElementById('search-plant').addEventListener('focus', () => dataLayer.push({'event': 'focus_search'}));
 
-  // Bind input events for filters to save their state and update title
-  const filters = ['filter-qi', 'filter-duration', 'filter-max-pills'];
-  filters.forEach(id => {
+  ['filter-qi', 'filter-duration', 'filter-max-pills'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('input', () => {
         updateResultsTitle();
         saveUISettings();
       });
-      el.addEventListener('focus', () => dataLayer.push({'event': `focus_${id}`}));
+      el.addEventListener('focus', () => {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({'event': `focus_${id}`});
+      });
+    }
+  });
+
+  document.getElementById('results-summary').addEventListener('click', async (e) => {
+    if (e.target && e.target.id === 'btn-toggle-sort') {
+      currentSortMode = currentSortMode === 'grouped' ? 'qimulti' : 'grouped';
+      saveUISettings();
+      e.target.disabled = true;
+      e.target.textContent = 'Sorting...';
+      await renderResults();
     }
   });
 
   updateResultsTitle();
-  loadResultsState();
+  await loadResultsState();
 }
 
-function renderInventoryGrid() {
-  const grid = document.getElementById('inventory-grid');
-  grid.innerHTML = '';
-
-  const rarities = ['C', 'U', 'R', 'E', 'L'];
-  const rarityLabels = { C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic', L: 'Legendary' };
-  const familyEmoji = { VITALITY: '❤️', ENDURANCE: '🛡️', AGILITY: '⚡', SPIRIT: '🔮' };
-
-  for (const r of rarities) {
-    const section = document.createElement('div');
-
-    const header = document.createElement('div');
-    header.className = `rarity-header header-${r}`;
-
-    header.innerHTML = `
-      <span class="rarity-symbol">${r}</span>
-      <span class="rarity-text">${rarityLabels[r]}</span>
-    `;
-    section.appendChild(header);
-
-    const plantsInRarity = Object.entries(PLANTS)
-      .filter(([_, data]) => data.rarity === r)
-      .sort((a, b) => a[1].score - b[1].score);
-
-    for (const [plantName, data] of plantsInRarity) {
-      const card = document.createElement('div');
-      card.className = `plant-card rarity-${r}`;
-      card.dataset.plant = plantName;
-      card.dataset.family = data.family;
-
-      card.innerHTML = `
-        <div class="plant-info">
-          <span class="plant-score">⭐ ${data.score} ~</span>
-          <span class="plant-name">${plantName}</span>
-          <span class="plant-family-tag">${familyEmoji[data.family]} ${data.family.toLowerCase()}</span>
-        </div>
-        <div class="qty-controls">
-          <button class="qty-btn" onclick="adjustQty('${plantName}', -1)">−</button>
-          <input class="qty-input" type="number" min="0" value="0"
-            id="qty-${CSS_escape(plantName)}"
-            onchange="setQty('${plantName}', this.value)"
-            oninput="setQty('${plantName}', this.value)">
-          <button class="qty-btn" onclick="adjustQty('${plantName}', 1)">+</button>
-        </div>
-      `;
-      section.appendChild(card);
-    }
-    grid.appendChild(section);
-  }
-}
-
-function CSS_escape(str) {
-  return str.replace(/[^a-zA-Z0-9-_]/g, s => '\\' + s);
-}
-
-function getQtyInput(plantName) {
-  return document.getElementById('qty-' + CSS_escape(plantName));
-}
-
-function adjustQty(plantName, delta) {
-  const current = inventoryState[plantName] || 0;
-  const newVal = Math.max(0, current + delta);
-  inventoryState[plantName] = newVal;
-  const input = getQtyInput(plantName);
-  if (input) input.value = newVal;
-  updateCardState(plantName, newVal);
-  saveInventory();
-}
-
-function setQty(plantName, value) {
-  const newVal = Math.max(0, parseInt(value) || 0);
-  inventoryState[plantName] = newVal;
-  const input = getQtyInput(plantName);
-  if (input && parseInt(input.value) !== newVal) input.value = newVal;
-  updateCardState(plantName, newVal);
-  saveInventory();
-}
-
-function updateCardState(plantName, qty) {
-  const card = document.querySelector(`.plant-card[data-plant="${plantName}"]`);
-  if (card) {
-    card.classList.toggle('has-stock', qty > 0);
-  }
-}
-
-function clearResultsOnly() {
-  document.getElementById('results').innerHTML = '';
-  document.getElementById('results-summary').innerHTML = '';
-}
-
-let clearConfirmTimeout = null;
-
-function handleClearAllClick() {
-  const btn = document.getElementById('btn-clear');
-  
-  if (btn.classList.contains('btn-confirm-waiting')) {
-    executeClearAll();
-  } else {
-    btn.classList.add('btn-confirm-waiting');
-    btn.textContent = '⚠️ CONFIRM ?';
-    
-    clearConfirmTimeout = setTimeout(() => {
-      resetClearButton();
-    }, 3000);
-  }
-}
-
-function resetClearButton() {
-  const btn = document.getElementById('btn-clear');
-  btn.classList.remove('btn-confirm-waiting');
-  btn.textContent = 'Clear All';
-  if (clearConfirmTimeout) clearTimeout(clearConfirmTimeout);
-}
-
-function executeClearAll() {
-  for (const plantName of Object.keys(PLANTS)) {
-    inventoryState[plantName] = 0;
-    const input = getQtyInput(plantName);
-    if (input) input.value = 0;
-    updateCardState(plantName, 0);
-  }
-  saveInventory();
-  clearResultsOnly();
-  resetClearButton();
-}
-
-let clearResultsConfirmTimeout = null;
-
-function handleClearResultsClick() {
-  const btn = document.getElementById('btn-clear-results');
-  
-  if (btn.classList.contains('btn-confirm-waiting')) {
-    executeClearResults();
-  } else {
-    btn.classList.add('btn-confirm-waiting');
-    btn.textContent = '⚠️ CONFIRM ?';
-    
-    clearResultsConfirmTimeout = setTimeout(() => {
-      resetClearResultsButton();
-    }, 3000);
-  }
-}
-
-function resetClearResultsButton() {
-  const btn = document.getElementById('btn-clear-results');
-  btn.classList.remove('btn-confirm-waiting');
-  btn.textContent = 'Clear Recipes';
-  if (clearResultsConfirmTimeout) clearTimeout(clearResultsConfirmTimeout);
-}
-
-function executeClearResults() {
-  clearResultsOnly();
-  resetClearResultsButton();
-}
-
-function clearAll() {
-  for (const plantName of Object.keys(PLANTS)) {
-    inventoryState[plantName] = 0;
-    const input = getQtyInput(plantName);
-    if (input) input.value = 0;
-    updateCardState(plantName, 0);
-  }
-  saveInventory();
-  clearResultsOnly();
-}
-
-function filterPlants(e) {
-  const query = e.target.value.toLowerCase().trim();
-  const cards = document.querySelectorAll('.plant-card');
-  const sections = document.querySelectorAll('.rarity-section');
-
-  cards.forEach(card => {
-    const name = card.dataset.plant.toLowerCase();
-    const family = card.dataset.family.toLowerCase();
-    card.style.display = (!query || name.includes(query) || family.includes(query)) ? '' : 'none';
-  });
-
-  sections.forEach(section => {
-    const visibleCards = section.querySelectorAll('.plant-card:not([style*="display: none"])');
-    section.style.display = visibleCards.length > 0 ? '' : 'none';
-  });
-}
+// ------------------------------------------------------------
+// 3. CORE HANDLERS (OPTIMIZER)
+// ------------------------------------------------------------
 
 async function runOptimizer() {
-
   const btn = document.getElementById('btn-optimize');
-  const minDuration = parseInt(document.getElementById('filter-duration').value) || 0;
-  const qiInput = document.getElementById('filter-qi').value;
-  const minQi = qiInput === "" ? 100 : parseInt(qiInput);
-  
-  const maxPillsInput = document.getElementById('filter-max-pills').value;
-  const maxPills = maxPillsInput === "" ? Infinity : parseInt(maxPillsInput);
-  
-  const maxSize = 3;
-  const calcMode = document.getElementById('filter-calc-mode').value;
-  currentCalcMode = calcMode;
+  const resultsEl = document.getElementById('results');
+  const summaryEl = document.getElementById('results-summary');
   
   btn.disabled = true;
   btn.textContent = '⚗️ Calculating...';
 
-  await new Promise(resolve => setTimeout(resolve, 50));
+  // AUDIO INTEGRATION: Start looping sound
+  if (window.AudioController) window.AudioController.startOptimizing();
 
-try {
-    const inventory = { ...inventoryState };
-    for (const k of Object.keys(inventory)) {
-      if (!inventory[k]) delete inventory[k];
+  summaryEl.innerHTML = '';
+  resultsEl.innerHTML = '<div class="no-results loading">⚗️ Extracting Qi...</div>';
+  
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  try {
+    const minDuration = parseInt(document.getElementById('filter-duration').value) || 0;
+    const qiInput = document.getElementById('filter-qi').value;
+    const minQi = qiInput === "" ? 100 : parseInt(qiInput);
+    
+    const maxPillsInput = document.getElementById('filter-max-pills').value;
+    const maxPills = maxPillsInput === "" ? Infinity : parseInt(maxPillsInput);
+    const maxSize = 3;
+
+    const inv = {};
+    for (const [p, q] of Object.entries(inventoryState)) { 
+      if (q > 0) inv[p] = q; 
     }
 
-    const allPills = await generateAllDerivations(inventory, minDuration, maxSize, minQi, currentCalcMode);
-    currentBestSet = findBestSet(allPills, inventory, maxPills);
+    const allPills = await generateAllDerivations(inv, minDuration, maxSize, minQi, currentCalcMode);
+    currentBestSet = await findBestSet(allPills, inv, maxPills);
     
-    // Assign a unique ID and default "isDone" state to each generated pill
-    currentBestSet.forEach((pill, idx) => {
-      pill.id = 'pill_' + Date.now() + '_' + idx;
-      pill.isDone = false;
+    currentBestSet.forEach((p, idx) => {
+      p.id = `p_${Date.now()}_${idx}`;
+      p.isDone = false;
     });
-    
+
     currentTotalDerivations = allPills.length;
-    
-    // Save the new generation to localStorage
     saveResultsState();
-    renderResults();
+    
+    await renderResults();
+
+    // AUDIO INTEGRATION: Stop looping and play end sound
+    if (window.AudioController) window.AudioController.playOptimizeEnd();
+
   } catch (err) {
     console.error(err);
-    document.getElementById('results').innerHTML = `<div class="error-msg">❌ Error: ${err.message}</div>`;
+    if (window.AudioController) window.AudioController.stopOptimizing(); // Stop on error
+    resultsEl.innerHTML = `<div class="error-msg">❌ Error: ${err.message}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = '⚗️ Optimize QiMulti';
   }
 }
 
-function renderResults() {
+// ------------------------------------------------------------
+// 4. RENDERING LOGIC
+// ------------------------------------------------------------
+
+function renderInventoryGrid() {
+  const grid = document.getElementById('inventory-grid');
+  const rarities = ['C', 'U', 'R', 'E', 'L'];
+  const rarityLabels = { C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic', L: 'Legendary' };
+  const familyEmoji = { VITALITY: '❤️', ENDURANCE: '🛡️', AGILITY: '⚡', SPIRIT: '🔮' };
+
+  grid.innerHTML = rarities.map(r => {
+    const plants = Object.entries(PLANTS)
+      .filter(([_, data]) => data.rarity === r)
+      .sort((a, b) => a[1].score[0] - b[1].score[0]);
+
+    const cards = plants.map(([name, data]) => {
+      const qty = inventoryState[name] || 0;
+      const hasStock = qty > 0 ? 'has-stock' : '';
+      const safeNameEsc = name.replace(/'/g, "\\'");
+      return `
+        <div class="plant-card rarity-${r} ${hasStock}" data-plant="${name.replace(/"/g, '&quot;')}" data-family="${data.family}">
+          <div class="plant-info">
+            <span class="plant-score">⭐ ${data.score[0]} ~</span>
+            <span class="plant-name">${name}</span>
+            <span class="plant-family-tag">
+              <span class="family-emoji">${familyEmoji[data.family]}</span> <i>${data.family.toLowerCase()}</i>
+            </span>
+          </div>
+          <div class="qty-controls">
+            <button class="qty-btn" onclick="adjustQty('${safeNameEsc}', -1)">−</button>
+            <input class="qty-input" type="number" min="0" value="${qty}" 
+                   oninput="setQty('${safeNameEsc}', this.value)">
+            <button class="qty-btn" onclick="adjustQty('${safeNameEsc}', 1)">+</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="rarity-section">
+        <div class="rarity-header header-${r}">
+          <span class="rarity-symbol">${r}</span>
+          <span class="rarity-text">${rarityLabels[r]}</span>
+        </div>
+        ${cards}
+      </div>
+    `;
+  }).join('');
+}
+
+async function renderResults() {
   const resultsEl = document.getElementById('results');
   const summaryEl = document.getElementById('results-summary');
 
@@ -332,30 +199,31 @@ function renderResults() {
     return;
   }
 
-  const sortedSet = applySorting(currentBestSet, currentSortMode);
-  const summary = computeSetSummary(sortedSet);
+  if (currentBestSet.length > 30) {
+    resultsEl.innerHTML = '<div class="no-results loading">⚗️ Sorting and grouping results...</div>';
+    await new Promise(r => requestAnimationFrame(r));
+  }
 
-  const sortBtnText = currentSortMode === 'grouped' ? 'Sort by QiMulti' : 'Sort by proximity';
+  const sortedSet = await applySorting(currentBestSet, currentSortMode);
+  const summary = computeSetSummary(sortedSet);
+  const sortBtnText = currentSortMode === 'grouped' ? 'Sort by QiMulti' : 'Sort by Proximity';
+  const modeText = currentCalcMode === 'handcrafted' ? 'Handcrafted' : 'Alchemist';
 
   let summaryHtml = `
     <div class="summary-box">
       <span class="summary-total">+${summary.totalQi}% Total QiMulti</span>
       <span class="summary-pills">${summary.pills.length} unique pill(s)</span>
       <span class="summary-derived">${currentTotalDerivations} derivations analyzed</span>
-      
-      <span class="summary-mode" style="font-size: 0.85rem; color: var(--gold); padding-left: 0.8rem; border-left: 1px solid var(--border); letter-spacing: 0.05em; text-transform: uppercase;">
-        ${currentCalcMode === 'handcrafted' ? 'Handcrafted' : 'Alchemist'}
-      </span>
-      
-      <button id="btn-toggle-sort" class="btn" style="margin-left: auto;">${sortBtnText}</button>
+      <span class="summary-mode">${modeText}</span>
+      <button id="btn-toggle-sort" class="btn sort-toggle-btn">${sortBtnText}</button>
     </div>
   `;
 
   if (currentSortMode === 'grouped') {
     summaryHtml += `
-      <div class="summary-box" style="margin-top: 0.5rem; background: rgba(94, 207, 122, 0.1); border-color: rgba(94, 207, 122, 0.3); justify-content: center; padding: 0.4rem;">
-        <span style="color: var(--green); font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-          <span style="border: 1px solid var(--green); padding: 0.1rem 0.3rem; border-radius: 3px; box-shadow: 0 0 6px rgba(94, 207, 122, 0.4);">Plant Name</span> 
+      <div class="summary-box hint-box">
+        <span class="hint-text">
+          <span class="hint-mock-tag">Plant Name</span> 
           <span>Green borders indicate plants that were swapped compared to the pill directly above it</span>
         </span>
       </div>
@@ -364,102 +232,74 @@ function renderResults() {
 
   summaryEl.innerHTML = summaryHtml;
 
-  const btnSort = document.getElementById('btn-toggle-sort');
-  const newBtnSort = btnSort.cloneNode(true);
-  btnSort.parentNode.replaceChild(newBtnSort, btnSort);
-  newBtnSort.addEventListener('click', () => {
-    currentSortMode = currentSortMode === 'grouped' ? 'qimulti' : 'grouped';
-    saveUISettings();
-    renderResults();
-  });
-
   let prevExpanded = null;
 
   resultsEl.innerHTML = sortedSet.map((p, i) => {
-    const pillQiMulti = getTotalQiMulti(p);
-    const typeClass = p.type.toLowerCase();
+    const pillQi = getTotalQiMulti(p);
     const craftedClass = p.isDone ? 'crafted' : '';
-    const isCheckedAttr = p.isDone ? 'checked' : '';
-
-    const qiBadgeHtml = pillQiMulti > 0 
-      ? `<span class="pill-qi">+${pillQiMulti}% QiMulti</span>` 
-      : '';
-
-    const effectsHtml = p.effects.map(e => {
-      const durStr = e.duration === 0
-        ? '<span class="perm-badge">♾ Permanent</span>'
-        : `<span class="dur-badge">⏱ ${formatDuration(e.duration)}</span>`;
-      return `<span class="effect-tag ${e.stat.toLowerCase()}">${e.stat === 'QiMulti' ? '✨' : ''}+${e.pct}% ${e.stat} ${durStr}</span>`;
-    }).join('');
-
-    let expandedIngredients = [];
+    
+    let expanded = [];
     for (const [plant, qty] of Object.entries(p.ingredients)) {
-      for (let k = 0; k < qty; k++) expandedIngredients.push(plant);
+      for (let k = 0; k < qty; k++) expanded.push(plant);
     }
 
-    let ingrHtml = '';
+    let diffFlags = new Array(6).fill(false);
     let separatorHtml = '';
 
     if (currentSortMode === 'grouped') {
-      let alignedIngredients = new Array(6).fill(null);
-      let diffFlags = new Array(6).fill(false);
-
-      if (i > 0 && sortedSet[i - 1].basePill === p.basePill && prevExpanded) {
-        let tempCurrent = [...expandedIngredients];
+      if (i > 0 && sortedSet[i-1].basePill === p.basePill && prevExpanded) {
+        let aligned = new Array(6).fill(null);
+        let pool = [...expanded];
         
-        for (let j = 0; j < 6; j++) {
-          const prevPlant = prevExpanded[j];
-          const matchIdx = tempCurrent.indexOf(prevPlant);
-          if (matchIdx !== -1) {
-            alignedIngredients[j] = prevPlant;
-            tempCurrent.splice(matchIdx, 1);
-          }
-        }
+        prevExpanded.forEach((prevP, idx) => {
+          const m = pool.indexOf(prevP);
+          if (m !== -1) aligned[idx] = pool.splice(m, 1)[0];
+        });
         
-        for (let j = 0; j < 6; j++) {
-          if (alignedIngredients[j] === null) {
-            alignedIngredients[j] = tempCurrent.shift();
-            diffFlags[j] = true;
+        aligned = aligned.map((v, idx) => {
+          if (v === null) { 
+            diffFlags[idx] = true; 
+            return pool.shift(); 
           }
-        }
+          return v;
+        });
+        expanded = aligned;
       } else {
-        alignedIngredients = expandedIngredients.sort((a, b) => PLANTS[b].score - PLANTS[a].score);
+        expanded.sort((a,b) => PLANTS[b].score[0] - PLANTS[a].score[0]);
       }
-
-      prevExpanded = alignedIngredients;
-
-      ingrHtml = alignedIngredients.map((plant, slotIdx) => {
-        const rarity = PLANTS[plant]?.rarity || '?';
-        const swappedClass = diffFlags[slotIdx] ? ' swapped' : '';
-        return `<span class="ingr-tag rarity-${rarity}${swappedClass}">${plant}</span>`;
-      }).join('');
-
+      
       if (i > 0 && sortedSet[i - 1].basePill !== p.basePill) {
         separatorHtml = `<div class="group-divider"></div>`;
       }
-
     } else {
-      ingrHtml = Object.entries(p.ingredients)
-        .sort((a, b) => PLANTS[b[0]].score - PLANTS[a[0]].score)
-        .map(([plant, qty]) => {
-          const rarity = PLANTS[plant]?.rarity || '?';
-          return `<span class="ingr-tag rarity-${rarity}">${qty}× ${plant}</span>`;
-        }).join('');
+      expanded.sort((a,b) => PLANTS[b].score[0] - PLANTS[a].score[0]);
     }
+    
+    prevExpanded = expanded;
 
+    const ingrHtml = expanded.map((name, idx) => {
+      const swapped = diffFlags[idx] ? 'swapped' : '';
+      return `<span class="ingr-tag rarity-${PLANTS[name].rarity} ${swapped}">${name}</span>`;
+    }).join('');
+
+    const effectsHtml = p.effects.map(e => {
+      const durStr = e.duration === 0 ? '<span class="perm-badge">♾ Permanent</span>' : `<span class="dur-badge">⏱ ${e.duration}s</span>`;
+      return `<span class="effect-tag ${e.stat.toLowerCase()}">${e.stat === 'QiMulti' ? '✨' : ''}+${e.pct}% ${e.stat} ${durStr}</span>`;
+    }).join('');
+
+    const qiBadgeHtml = pillQi > 0 ? `<span class="pill-qi">+${pillQi}% QiMulti</span>` : '';
     const animDelay = Math.min(i * 30, 800);
 
     return `
       ${separatorHtml}
-      <div class="pill-card ${typeClass} ${craftedClass}" style="animation-delay:${animDelay}ms">
+      <div class="pill-card ${p.type.toLowerCase()} ${craftedClass}" style="animation-delay:${animDelay}ms">
         <div class="pill-header">
           <span class="pill-rank">#${i + 1}</span>
           <span class="pill-name">${p.name}</span>
-          <span class="pill-type-badge ${typeClass}">${p.type}</span>
+          <span class="pill-type-badge ${p.type.toLowerCase()}">${p.type}</span>
           ${qiBadgeHtml}
           <label class="craft-toggle">
-            <input type="checkbox" ${isCheckedAttr} onchange="togglePillDone(this, '${p.id}')">
-            Done
+            <input type="checkbox" ${p.isDone ? 'checked' : ''} onchange="togglePillDone(this, '${p.id}')"> Done
           </label>
         </div>
         <div class="pill-effects">${effectsHtml}</div>
@@ -469,35 +309,53 @@ function renderResults() {
   }).join('');
 }
 
-function formatDuration(seconds) {
-  return `${seconds}s`;
+// ------------------------------------------------------------
+// 5. INVENTORY LOGIC
+// ------------------------------------------------------------
+
+function adjustQty(name, delta) {
+  const val = Math.max(0, (inventoryState[name] || 0) + delta);
+  setQty(name, val);
 }
 
-document.addEventListener('DOMContentLoaded', initUI);
+function setQty(name, val) {
+  const num = Math.max(0, Math.floor(Number(val) || 0));
+  inventoryState[name] = num;
+  
+  const safeName = name.replace(/"/g, '\\"');
+  const card = document.querySelector(`.plant-card[data-plant="${safeName}"]`);
+  
+  if (card) {
+    card.classList.toggle('has-stock', num > 0);
+    const input = card.querySelector('.qty-input');
+    if (input && parseInt(input.value) !== num) {
+      input.value = num;
+    }
+  }
+  
+  debouncedSaveInventory();
+}
 
 function togglePillDone(checkbox, pillId) {
-  const pillCard = checkbox.closest('.pill-card');
-  const isChecked = checkbox.checked;
-  
-  pillCard.classList.toggle('crafted', isChecked);
-
-  // Find the exact pill in the global state and update its status
   const pill = currentBestSet.find(p => p.id === pillId);
   if (!pill) return;
-  
-  pill.isDone = isChecked;
-  saveResultsState(); // Save the new "done" state to localStorage
 
-  // Update inventory quantities
-  for (const [plantName, qty] of Object.entries(pill.ingredients)) {
-    const currentQty = inventoryState[plantName] || 0;
-    
-    const newQty = isChecked 
-      ? Math.max(0, currentQty - qty) 
-      : currentQty + qty;
-      
-    setQty(plantName, newQty);
+  const isChecked = checkbox.checked;
+  
+  // AUDIO INTEGRATION
+  if (window.AudioController) {
+    if (isChecked) window.AudioController.playDone();
+    else window.AudioController.decrementCraftCount();
   }
+
+  pill.isDone = isChecked;
+  checkbox.closest('.pill-card').classList.toggle('crafted', isChecked);
+
+  for (const [name, qty] of Object.entries(pill.ingredients)) {
+    const current = inventoryState[name] || 0;
+    setQty(name, isChecked ? Math.max(0, current - qty) : current + qty);
+  }
+  saveResultsState();
 
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
@@ -506,49 +364,168 @@ function togglePillDone(checkbox, pillId) {
   });
 }
 
-function updateResultsTitle() {
-  const titleText = document.getElementById('results-title-text');
-  if (titleText) {
-    const minDuration = parseInt(document.getElementById('filter-duration').value) || 0;
-    const qiInput = document.getElementById('filter-qi').value;
-    const minQi = qiInput === "" ? 100 : parseInt(qiInput);
-    
-    titleText.textContent = `✨ Best Set — QiMulti ≥ ${minQi}% | Min Duration ≥ ${minDuration}s`;
+// ------------------------------------------------------------
+// 6. PERSISTENCE (LOCALSTORAGE)
+// ------------------------------------------------------------
+
+function saveUISettings() {
+  uiSettings.minQi = document.getElementById('filter-qi').value;
+  uiSettings.minDuration = document.getElementById('filter-duration').value;
+  uiSettings.maxPills = document.getElementById('filter-max-pills').value;
+  uiSettings.sortMode = currentSortMode;
+  localStorage.setItem('alchemySettings', JSON.stringify(uiSettings));
+}
+
+function saveInventory() {
+  const cleanInv = Object.fromEntries(Object.entries(inventoryState).filter(([_, v]) => v > 0));
+  localStorage.setItem('alchemyInventory', JSON.stringify(cleanInv));
+}
+
+function loadAllState() {
+  try {
+    inventoryState = JSON.parse(localStorage.getItem('alchemyInventory')) || {};
+    const savedUi = JSON.parse(localStorage.getItem('alchemySettings'));
+    if (savedUi) {
+      uiSettings = { ...uiSettings, ...savedUi };
+      currentSortMode = uiSettings.sortMode || 'grouped';
+      currentCalcMode = uiSettings.calcMode || 'alchemist';
+    }
+  } catch (e) { console.error("Storage corrupt", e); }
+}
+
+function saveResultsState() {
+  localStorage.setItem('alchemyResults', JSON.stringify({
+    bestSet: currentBestSet, 
+    totalDerivations: currentTotalDerivations,
+    calcMode: currentCalcMode
+  }));
+}
+
+async function loadResultsState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('alchemyResults'));
+    if (saved && saved.bestSet && saved.bestSet.length > 0) {
+      currentBestSet = saved.bestSet;
+      currentTotalDerivations = saved.totalDerivations || 0;
+      currentCalcMode = saved.calcMode || 'alchemist';
+      await renderResults();
+    }
+  } catch (e) { console.error("Results corrupt", e); }
+}
+
+// ------------------------------------------------------------
+// 7. UTILS & UI HELPERS
+// ------------------------------------------------------------
+
+function withConfirmation(btn, originalText, callback) {
+  if (btn.dataset.confirm === 'true') {
+    if (window.AudioController) window.AudioController.playBin(); // AUDIO INTEGRATION (2nd click)
+    callback();
+    btn.dataset.confirm = 'false';
+    btn.textContent = originalText;
+    btn.classList.remove('btn-confirm-waiting');
+  } else {
+    btn.dataset.confirm = 'true';
+    btn.textContent = '⚠️ CONFIRM ?';
+    btn.classList.add('btn-confirm-waiting');
+    setTimeout(() => {
+      btn.dataset.confirm = 'false';
+      btn.textContent = originalText;
+      btn.classList.remove('btn-confirm-waiting');
+    }, 3000);
   }
 }
 
-function clearResultsOnly() {
+function executeClearAll() {
+  inventoryState = {};
+  saveInventory();
+  renderInventoryGrid();
+  cachedCards = Array.from(document.querySelectorAll('.plant-card'));
+  executeClearResults();
+}
+
+function executeClearResults() {
+  currentBestSet = [];
   document.getElementById('results').innerHTML = '';
   document.getElementById('results-summary').innerHTML = '';
-  currentBestSet = [];
-  localStorage.removeItem('alchemyResults'); // Clear saved results
+  localStorage.removeItem('alchemyResults');
+  
+  // AUDIO INTEGRATION: Reset achievements and crafted count
+  if (window.AudioController) window.AudioController.resetState();
 }
 
-// ============================================================
-// Logic for UI Sorting & Grouping
-// ============================================================
+function filterPlants(e) {
+  const q = e.target.value.toLowerCase().trim();
+  const sections = document.querySelectorAll('#inventory-grid > .rarity-section');
+  
+  cachedCards.forEach(card => {
+    const match = !q || card.dataset.plant.toLowerCase().includes(q) || card.dataset.family.toLowerCase().includes(q);
+    card.style.display = match ? '' : 'none';
+  });
 
-function getPathDistance(path) {
-  let total = 0;
-  for (let i = 0; i < path.length - 1; i++) {
-    total += ingredientDistance(path[i].ingredients, path[i+1].ingredients);
+  sections.forEach(section => {
+    const visibleCards = section.querySelectorAll('.plant-card:not([style*="display: none"])');
+    section.style.display = visibleCards.length > 0 ? '' : 'none';
+  });
+}
+
+function updateResultsTitle() {
+  const qi = document.getElementById('filter-qi').value || 100;
+  const dur = document.getElementById('filter-duration').value || 0;
+  const title = document.getElementById('results-title-text');
+  if (title) title.textContent = `✨ Best Set — QiMulti ≥ ${qi}% | Min Duration ≥ ${dur}s`;
+}
+
+function debounce(fn, delay) {
+  let t; 
+  return (...args) => { 
+    clearTimeout(t); 
+    t = setTimeout(() => fn(...args), delay); 
+  };
+}
+
+function debouncedSaveInventory() {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveInventory, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', initUI);
+
+// ------------------------------------------------------------
+// 8. PATHING & SORTING MATH
+// ------------------------------------------------------------
+
+function ingredientDistance(ingr1, ingr2) {
+  let diff = 0;
+  for (const p in ingr1) {
+    const q1 = ingr1[p];
+    const q2 = ingr2[p] || 0;
+    diff += Math.abs(q1 - q2);
   }
-  return total;
+  for (const p in ingr2) {
+    if (!(p in ingr1)) diff += ingr2[p];
+  }
+  return diff / 2; 
 }
 
-function optimizePath2Opt(path) {
+async function optimizePath2Opt(path) {
   if (path.length <= 2) return path;
   
   let improved = true;
-  
+  let lastYield = performance.now();
+
   while (improved) {
     improved = false;
     for (let i = 1; i < path.length - 2; i++) {
       for (let j = i + 1; j < path.length - 1; j++) {
         
+        if (performance.now() - lastYield > 40) {
+          await new Promise(r => setTimeout(r, 0));
+          lastYield = performance.now();
+        }
+
         const d1 = ingredientDistance(path[i-1].ingredients, path[i].ingredients);
         const d2 = ingredientDistance(path[j].ingredients, path[j+1].ingredients);
-        
         const d3 = ingredientDistance(path[i-1].ingredients, path[j].ingredients);
         const d4 = ingredientDistance(path[i].ingredients, path[j+1].ingredients);
 
@@ -570,7 +547,7 @@ function optimizePath2Opt(path) {
   return path;
 }
 
-function applySorting(bestSet, mode) {
+async function applySorting(bestSet, mode) {
   if (mode === 'qimulti') {
     return [...bestSet].sort((a, b) => getTotalQiMulti(b) - getTotalQiMulti(a));
   }
@@ -581,31 +558,25 @@ function applySorting(bestSet, mode) {
     groups[pill.basePill].push(pill);
   }
 
-  const baseQiMap = {};
-  for (const basePill of Object.keys(groups)) {
-    const recipe = RECIPES.find(r => r.name === basePill);
-    let qi = 0;
-    if (recipe) {
-      for (const e of recipe.effects) {
-        if (e.stat === "QiMulti") qi += e.pct;
-      }
-    }
-    baseQiMap[basePill] = qi;
-  }
-
   const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
-    const diff = baseQiMap[b] - baseQiMap[a];
-    if (diff !== 0) return diff;
-    const maxA = Math.max(...groups[a].map(getTotalQiMulti));
-    const maxB = Math.max(...groups[b].map(getTotalQiMulti));
+    const rA = typeof RECIPE_BY_NAME !== 'undefined' ? RECIPE_BY_NAME.get(a) : RECIPES.find(r => r.name === a);
+    const rB = typeof RECIPE_BY_NAME !== 'undefined' ? RECIPE_BY_NAME.get(b) : RECIPES.find(r => r.name === b);
+    
+    const qiA = rA ? getTotalQiMulti(rA) : 0;
+    const qiB = rB ? getTotalQiMulti(rB) : 0;
+    
+    if (qiB !== qiA) return qiB - qiA;
+    
+    const maxA = groups[a].reduce((m, p) => Math.max(m, getTotalQiMulti(p)), 0);
+    const maxB = groups[b].reduce((m, p) => Math.max(m, getTotalQiMulti(p)), 0);
     return maxB - maxA;
   });
 
   const finalSorted = [];
+  let lastYield = performance.now();
 
   for (const key of sortedGroupKeys) {
     const groupPills = groups[key];
-    
     groupPills.sort((a, b) => getTotalQiMulti(b) - getTotalQiMulti(a));
     
     const chained = [];
@@ -615,6 +586,11 @@ function applySorting(bestSet, mode) {
     chained.push(current);
 
     while (unplaced.length > 0) {
+      if (performance.now() - lastYield > 40) {
+        await new Promise(r => setTimeout(r, 0));
+        lastYield = performance.now();
+      }
+
       let bestIndex = -1;
       let minDistance = Infinity;
 
@@ -630,28 +606,121 @@ function applySorting(bestSet, mode) {
       chained.push(current);
     }
 
-    const optimizedChained = optimizePath2Opt(chained);
-    
+    const optimizedChained = await optimizePath2Opt(chained);
     finalSorted.push(...optimizedChained);
   }
 
   return finalSorted;
 }
 
-function ingredientDistance(ingr1, ingr2) {
-  let diff = 0;
+// ------------------------------------------------------------
+// 9. SPLASH SCREEN & BACKGROUND ANIMATIONS
+// ------------------------------------------------------------
+
+document.addEventListener('DOMContentLoaded', () => {
+  const splashScreen = document.getElementById('splash-screen');
+  const enterBtn = document.getElementById('enter-btn');
   
-  for (const p in ingr1) {
-    const q1 = ingr1[p];
-    const q2 = ingr2[p] || 0;
-    diff += Math.abs(q1 - q2);
-  }
-  
-  for (const p in ingr2) {
-    if (!(p in ingr1)) {
-      diff += ingr2[p];
+  if (!splashScreen || !enterBtn) return;
+
+  document.body.classList.add('locked');
+
+  enterBtn.addEventListener('click', () => {
+    splashScreen.classList.add('fade-out');
+    document.body.classList.remove('locked');
+    
+    // AUDIO INTEGRATION: Play welcome on enter
+    if (window.AudioController) window.AudioController.playWelcome();
+    
+    setTimeout(() => {
+      splashScreen.remove();
+    }, 800);
+  });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('bubble-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  let width = window.innerWidth;
+  let height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+
+  const bubbles = [];
+  const BUBBLE_DENSITY = 0.4; 
+
+  window.addEventListener('resize', () => {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+  });
+
+  class Bubble {
+    constructor(isInitial = false) {
+      this.reset(isInitial);
+    }
+
+    reset(isInitial) {
+      this.radius = Math.pow(Math.random(), 2) * 14 + 10; 
+      
+      this.x = Math.random() * width;
+      this.y = isInitial ? Math.random() * height : height + this.radius * 2 + (Math.random() * 200);
+      
+      this.speedY = 0.2 + (this.radius * 0.08); 
+      
+      this.angle = Math.random() * Math.PI * 2;
+      this.wobbleSpeed = 0.005 + (5 / (this.radius + 5)) * 0.01;
+      this.wobbleAmp = this.radius * 0.03; 
+    }
+
+    update() {
+      this.y -= this.speedY;
+      this.angle += this.wobbleSpeed;
+      this.x += Math.sin(this.angle) * this.wobbleAmp;
+
+      if (this.y < -this.radius * 2) {
+        this.reset(false);
+      }
+    }
+
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(155, 114, 207, 0.1)';
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(155, 114, 207, 0.3)';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(
+        this.x - (this.radius * 0.3), 
+        this.y - (this.radius * 0.3), 
+        this.radius * 0.12,
+        0, 
+        Math.PI * 2
+      );
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.fill();
     }
   }
-  
-  return diff / 2; 
-}
+
+  const bubbleCount = Math.floor((width * height) / 10000 * BUBBLE_DENSITY);
+  for (let i = 0; i < bubbleCount; i++) {
+    bubbles.push(new Bubble(true));
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+    for (let bubble of bubbles) {
+      bubble.update();
+      bubble.draw();
+    }
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+});
